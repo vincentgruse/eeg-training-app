@@ -1,8 +1,11 @@
 "use strict";
 const electron = require("electron");
+console.log("Preload script executing...");
 electron.contextBridge.exposeInMainWorld("stimulusApi", {
-  // Get all image paths from the assets directory
-  getImagePaths: () => electron.ipcRenderer.invoke("stimulus:getImagePaths")
+  // Save data to file
+  saveSessionData: (data, filename) => {
+    return electron.ipcRenderer.invoke("stimulus:saveSessionData", data, filename);
+  }
 });
 electron.contextBridge.exposeInMainWorld("electronAPI", {
   onMainProcessMessage: (callback) => {

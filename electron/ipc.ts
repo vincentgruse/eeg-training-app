@@ -1,55 +1,33 @@
-import { ipcMain } from 'electron'
+import { ipcMain, app } from 'electron'
 import fs from 'fs'
 import path from 'path'
 
 // Set up IPC handlers for the application
 export const setupIpcHandlers = () => {
-  console.log('Setting up IPC handlers for stimulus presentation');
-  
-  // Handler to get image paths from the assets directory
-  ipcMain.handle('stimulus:getImagePaths', async () => {
+  // Handler to save session data to a file
+  ipcMain.handle('stimulus:saveSessionData', async (_, data, filename) => {
     try {
-      const result: Record<string, string[]> = {};
+      // Save to a fixed data directory within the project
+      const projectRoot = process.env.APP_ROOT || app.getAppPath();
+      const dataDir = path.join(projectRoot, 'data');
       
-      // Define the categories we want to scan
-      const categories = ['left', 'right', 'forward', 'backward', 'stop'];
-      
-      // Base path to images directory
-      const assetsPath = path.join(process.env.APP_ROOT || '', 'src/assets/images');
-      console.log('Scanning for images in:', assetsPath);
-      
-      // Get paths for each category
-      for (const category of categories) {
-        const categoryPath = path.join(assetsPath, category);
-        
-        // Check if directory exists
-        if (fs.existsSync(categoryPath) && fs.statSync(categoryPath).isDirectory()) {
-          // Get all files in the directory
-          const files = fs.readdirSync(categoryPath)
-            .filter(file => {
-              const ext = path.extname(file).toLowerCase();
-              return ['.jpg', '.jpeg', '.png', '.gif', '.svg'].includes(ext);
-            })
-            .map(file => {
-              // Use relative path for easier loading in the renderer
-              return `src/assets/images/${category}/${file}`;
-            });
-          
-          result[category] = files;
-          console.log(`Found ${files.length} images for ${category}`);
-        } else {
-          result[category] = [];
-          console.log(`No directory found for ${category}`);
-        }
+      // Create the data directory if it doesn't exist
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
       }
       
-      return { success: true, paths: result };
+      // Full file path
+      const filePath = path.join(dataDir, filename);
+      
+      // Write the data to file
+      fs.writeFileSync(filePath, data);
+      console.log(`Session data automatically saved to: ${filePath}`);
+      
+      return { success: true, path: filePath };
     } catch (error: unknown) {
-      console.error('Failed to get image paths:', error);
+      console.error('Failed to save session data:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       return { success: false, message: errorMessage };
     }
   });
-  
-  // Add more handlers as needed
 }

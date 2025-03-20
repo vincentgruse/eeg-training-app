@@ -1,391 +1,523 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Card, Button, Form, Row, Col, Alert } from 'react-bootstrap';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Card, Button } from 'react-bootstrap';
+import ConfigurationPanel from './ConfigurationPanel';
+import InstructionsView from './InstructionsView';
+import CountdownView from './CountdownView';
+import CompletionView from './CompletionView';
+import IntersectionView from './IntersectionView';
+import { IntersectionStimulus, Position, Direction } from './types';
+import {
+  DIRECTIONS,
+  DIRECTION_DISPLAY_DURATION,
+  TRIGGER_DURATION,
+  EMOJI_MOVEMENT_DURATION,
+  POST_REWARD_PAUSE,
+  SIMULATION_CENTER_X,
+  SIMULATION_CENTER_Y,
+  SIMULATION_REWARD_DISTANCE,
+} from './constants';
 
-const DIRECTIONS = ['left', 'right', 'forward', 'backward', 'stop'];
-const DIRECTION_DISPLAY_DURATION = 5000;
-const TRIGGER_DISPLAY_DURATION = 100;
-
-interface Stimulus {
-  id: string;
-  type: 'text' | 'image';
-  content: string;
-  duration: number;
-  category: string;
+interface TrialData {
+  trialIndex: number;
+  direction: Direction;
+  isStopTrial: boolean;
+  startTime: Date;
+  endTime?: Date;
 }
 
-interface ImagePathsState {
-  loaded: boolean;
-  paths: Record<string, string[]>;
-}
+const StimulusDisplay: React.FC = () => {
+  // Configuration state
+  const [stimuliPerDirection, setStimuliPerDirection] = useState(5);
+  const [delayBeforeMovement, setDelayBeforeMovement] = useState(2000);
+  const [participantNumber, setParticipantNumber] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-declare global {
-  interface Window {
-    stimulusApi: {
-      getImagePaths: () => Promise<{
-        success: boolean;
-        paths?: Record<string, string[]>;
-        message?: string;
-      }>;
-    };
-  }
-}
+  // Session tracking state
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [sessionEndTime, setSessionEndTime] = useState<Date | null>(null);
+  const [trialData, setTrialData] = useState<TrialData[]>([]);
+  const [hasExportedData, setHasExportedData] = useState(false);
 
-const ConfigurationPanel = ({ 
-  stimulusType, 
-  setType, 
-  numStimuli, 
-  setNumStimuli,
-  stimulusDuration, 
-  setDuration,
-  onStart,
-  error,
-  setError
-}: {
-  stimulusType: 'text' | 'image';
-  setType: (type: 'text' | 'image') => void;
-  numStimuli: number;
-  setNumStimuli: (num: number) => void;
-  stimulusDuration: number;
-  setDuration: (duration: number) => void;
-  onStart: () => void;
-  error: string | null;
-  setError: (error: string | null) => void;
-}) => {
-  const handleNumStimuliChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    if (isNaN(value) || value < 1) {
-      setError('Number of stimuli must be at least 1');
-      return;
-    }
-    setNumStimuli(value);
-  };
-
-  const handleDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    if (isNaN(value) || value < 100) {
-      setError('Duration must be at least 100ms');
-      return;
-    }
-    setDuration(value);
-  };
-
-  return (
-    <div className="stimulus-configuration w-full px-4">
-      <Card className="mb-4 mx-auto" style={{ maxWidth: '1200px' }}>
-        <Card.Header>
-          <h4 className="mb-0">Configure Stimuli</h4>
-        </Card.Header>
-        <Card.Body>
-          {error && <Alert variant="danger" dismissible onClose={() => setError(null)}>{error}</Alert>}
-          
-          <Form className="p-3">
-            <Row className="mb-4">
-              <Col md={4}>
-                <Form.Group>
-                  <Form.Label><strong>Stimulus Type</strong></Form.Label>
-                  <Form.Select 
-                    value={stimulusType} 
-                    onChange={(e) => setType(e.target.value as 'text' | 'image')}
-                    className="form-control-lg"
-                    aria-label="Select stimulus type"
-                  >
-                    <option value="text">All Text</option>
-                    <option value="image">All Images</option>
-                  </Form.Select>
-                  <Form.Text>
-                    {stimulusType === 'image' ? 
-                      'Presents only image stimuli from your assets folder' : 
-                      'Presents directional text (LEFT, RIGHT, etc.)'}
-                  </Form.Text>
-                </Form.Group>
-              </Col>
-              <Col md={4}>
-                <Form.Group>
-                  <Form.Label><strong>Number of Stimuli</strong></Form.Label>
-                  <Form.Control 
-                    type="number" 
-                    value={numStimuli}
-                    onChange={handleNumStimuliChange}
-                    min={1}
-                    max={100}
-                    className="form-control-lg"
-                    aria-label="Number of stimuli"
-                  />
-                  <Form.Text>
-                    Total number of stimuli to present in sequence
-                  </Form.Text>
-                </Form.Group>
-              </Col>
-              <Col md={4}>
-                <Form.Group>
-                  <Form.Label><strong>Stimulus Duration (ms)</strong></Form.Label>
-                  <Form.Control 
-                    type="number" 
-                    value={stimulusDuration}
-                    onChange={handleDurationChange}
-                    min={100}
-                    step={100}
-                    className="form-control-lg"
-                    aria-label="Stimulus duration in milliseconds"
-                  />
-                  <Form.Text>
-                    How long each stimulus appears on screen
-                  </Form.Text>
-                </Form.Group>
-              </Col>
-            </Row>
-            
-            <div className="text-center mt-4">
-              <Button 
-                variant="success" 
-                size="lg"
-                onClick={onStart}
-                className="px-5"
-              >
-                Start Presentation
-              </Button>
-            </div>
-          </Form>
-        </Card.Body>
-      </Card>
-    </div>
-  );
-};
-
-const Instructions = () => (
-  <div style={{
-    width: '80%',
-    height: '80%',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: '5px',
-    padding: '2rem'
-  }}>
-    <div className="text-center">
-      <h2>Stimulus Presentation</h2>
-      <p>You will be shown a series of direction stimuli.</p>
-      <p>Please focus on the center of the screen.</p>
-      <p>The presentation will begin after a 5-second countdown.</p>
-    </div>
-  </div>
-);
-
-const Countdown = ({ value }: { value: number }) => (
-  <div style={{
-    width: '100%',
-    height: '100%',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'white'
-  }}>
-    <h1 style={{ fontSize: '10rem', margin: 0 }}>{value}</h1>
-  </div>
-);
-
-const StimulusView = ({ stimulus }: { stimulus: Stimulus }) => (
-  <div style={{ 
-    width: '100%', 
-    height: '100%',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center'
-  }}>
-    {stimulus.type === 'text' ? (
-      <h1 style={{ 
-        fontSize: '15rem', 
-        color: 'black',
-        textAlign: 'center',
-        margin: 0
-      }}>{stimulus.content}</h1>
-    ) : (
-      <div style={{ 
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        overflow: 'hidden'
-      }}>
-        <img 
-          src={stimulus.content} 
-          alt={`${stimulus.category} stimulus`} 
-          style={{ 
-            objectFit: 'contain',
-            maxWidth: '100%',
-            maxHeight: '100%'
-          }} 
-        />
-      </div>
-    )}
-  </div>
-);
-
-const StimulusDisplay = () => {
-  const [stimulusType, setStimulusType] = useState<'text' | 'image'>('image');
-  const [numStimuli, setNumStimuli] = useState(10);
-  const [stimulusDuration, setStimulusDuration] = useState(1000);
+  // Presentation flow state
   const [isPresenting, setIsPresenting] = useState(false);
-  const [currentStimulus, setCurrentStimulus] = useState<Stimulus | null>(null);
   const [showDirections, setShowDirections] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [currentStimulusIndex, setCurrentStimulusIndex] = useState(0);
   const [showTrigger, setShowTrigger] = useState(false);
-  const [imagePaths, setImagePaths] = useState<ImagePathsState>({
-    loaded: false,
-    paths: {}
+  const [sessionComplete, setSessionComplete] = useState(false);
+
+  // Visual state for intersection simulation
+  const [emojiPosition, setEmojiPosition] = useState<Position>({
+    x: SIMULATION_CENTER_X,
+    y: SIMULATION_CENTER_Y,
   });
-  
-  const stimuliRef = useRef<Stimulus[]>([]);
-  const currentIndexRef = useRef<number>(0);
-  
-  // Load available images from the file system
-  useEffect(() => {
-    const loadImagePaths = async () => {
-      try {
-        const result = await window.stimulusApi.getImagePaths();
-        
-        if (result.success && result.paths) {
-          setImagePaths({
-            loaded: true,
-            paths: result.paths
-          });
-          setError(null);
-        } else {
-          setError(`Failed to load images: ${result.message}`);
-          setImagePaths({
-            loaded: true,
-            paths: {}
-          });
-        }
-      } catch (err) {
-        setError('Failed to load images. Using text fallback.');
-        setImagePaths({
-          loaded: true,
-          paths: {}
-        });
-      }
-    };
-    
-    loadImagePaths();
-  }, []);
-  
-  // Generate stimuli array based on settings
-  const generateStimuli = () => {
-    let generatedStimuli: Stimulus[] = [];
-    
-    // For "All Images" mode, first collect all available images across categories
-    const allAvailableImages: {path: string, category: string}[] = [];
-    if (stimulusType === 'image') {
-      DIRECTIONS.forEach(direction => {
-        const directionImages = imagePaths.paths[direction] || [];
-        directionImages.forEach(imagePath => {
-          allAvailableImages.push({
-            path: imagePath,
-            category: direction
-          });
-        });
-      });
-      
-      if (allAvailableImages.length === 0) {
-        setError('No images found in any category. Please add images or switch to text mode.');
-        return [];
-      }
-    }
-    
-    for (let i = 0; i < numStimuli; i++) {
-      const randomDirection = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
-      
-      if (stimulusType === 'text') {
+  const [rewardPosition, setRewardPosition] = useState<Position>({
+    x: SIMULATION_CENTER_X,
+    y: SIMULATION_CENTER_Y - SIMULATION_REWARD_DISTANCE,
+  });
+  const [isStopTrial, setIsStopTrial] = useState(false);
+  const [showStopSign, setShowStopSign] = useState(false);
+  const [rewardCollected, setRewardCollected] = useState(false);
+
+  // Refs for maintaining state across renders
+  const stimuliRef = useRef<IntersectionStimulus[]>([]);
+  const animationRef = useRef<number | null>(null);
+  const currentTrialRef = useRef<TrialData | null>(null);
+
+  // Generate randomized stimuli based on configuration
+  const generateStimuli = useCallback(() => {
+    let generatedStimuli: IntersectionStimulus[] = [];
+
+    DIRECTIONS.forEach((direction) => {
+      for (let i = 0; i < stimuliPerDirection; i++) {
         generatedStimuli.push({
-          id: Date.now().toString() + i,
-          type: 'text',
-          content: randomDirection.toUpperCase(),
-          duration: stimulusDuration,
-          category: randomDirection,
+          id: `${direction}-${i}`,
+          direction: direction as Direction,
+          completed: false,
         });
-      } else {
-        const directionImages = imagePaths.paths[randomDirection] || [];
-        
-        if (directionImages.length === 0) {
-          const randomImageData = allAvailableImages[Math.floor(Math.random() * allAvailableImages.length)];
-          generatedStimuli.push({
-            id: Date.now().toString() + i,
-            type: 'image',
-            content: randomImageData.path,
-            duration: stimulusDuration,
-            category: randomImageData.category,
-          });
+      }
+    });
+
+    // Randomize order of presentation
+    return generatedStimuli.sort(() => Math.random() - 0.5);
+  }, [stimuliPerDirection]);
+
+  // Calculate reward position based on direction
+  const calculateRewardPosition = (direction: string): Position => {
+    switch (direction) {
+      case 'left':
+        return {
+          x: SIMULATION_CENTER_X - SIMULATION_REWARD_DISTANCE,
+          y: SIMULATION_CENTER_Y,
+        };
+      case 'right':
+        return {
+          x: SIMULATION_CENTER_X + SIMULATION_REWARD_DISTANCE,
+          y: SIMULATION_CENTER_Y,
+        };
+      case 'forward':
+        return {
+          x: SIMULATION_CENTER_X,
+          y: SIMULATION_CENTER_Y - SIMULATION_REWARD_DISTANCE,
+        };
+      case 'backward':
+        return {
+          x: SIMULATION_CENTER_X,
+          y: SIMULATION_CENTER_Y + SIMULATION_REWARD_DISTANCE,
+        };
+      default:
+        return {
+          x: SIMULATION_CENTER_X,
+          y: SIMULATION_CENTER_Y,
+        };
+    }
+  };
+
+  // Calculate position to stop
+  const calculateStopPosition = useCallback(
+    (startPos: Position, endPos: Position): Position => {
+      return {
+        x: startPos.x + (endPos.x - startPos.x) * 0.8,
+        y: startPos.y + (endPos.y - startPos.y) * 0.8,
+      };
+    },
+    []
+  );
+
+  // Export session data to a file
+  const exportSessionData = useCallback(async () => {
+    if (
+      !sessionStartTime ||
+      !sessionEndTime ||
+      stimuliRef.current.length === 0
+    ) {
+      console.error('No session data available to export');
+      return false;
+    }
+
+    // Generate content and filename for export
+    const content = createExportContent(
+      participantNumber,
+      sessionStartTime,
+      sessionEndTime
+    );
+
+    const fileName = createFileName(participantNumber);
+
+    try {
+      return await saveDataToFile(content, fileName);
+    } catch (err) {
+      const error = err as Error;
+      console.error('Error exporting session data:', error);
+      alert(`Error exporting data: ${error.message || 'Unknown error'}`);
+      return false;
+    }
+  }, [sessionStartTime, sessionEndTime, stimuliRef, participantNumber]);
+
+  const handleStopPresentation = useCallback(() => {
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+
+    if (isPresenting && !sessionEndTime) {
+      setSessionEndTime(new Date());
+    }
+
+    if (currentTrialRef.current && !currentTrialRef.current.endTime) {
+      currentTrialRef.current.endTime = new Date();
+      setTrialData((prev) => [...prev]);
+    }
+
+    setIsPresenting(false);
+    setShowDirections(false);
+    setCountdown(null);
+    setSessionComplete(false);
+    setCurrentStimulusIndex(0);
+    setEmojiPosition({
+      x: SIMULATION_CENTER_X,
+      y: SIMULATION_CENTER_Y,
+    });
+    setShowTrigger(false);
+    setRewardCollected(false);
+    setIsStopTrial(false);
+    setShowStopSign(false);
+  }, [isPresenting, sessionEndTime]);
+
+  const animateEmojiMovement = useCallback(
+    (
+      startPos: Position,
+      endPos: Position,
+      duration: number,
+      markRewardCollected: boolean,
+      onComplete: () => void
+    ) => {
+      const startTime = performance.now();
+
+      const animate = (currentTime: number) => {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Linear interpolation between start and end positions
+        const newX = startPos.x + (endPos.x - startPos.x) * progress;
+        const newY = startPos.y + (endPos.y - startPos.y) * progress;
+
+        setEmojiPosition({ x: newX, y: newY });
+
+        if (progress < 1) {
+          // Continue animation if not complete
+          animationRef.current = requestAnimationFrame(animate);
         } else {
-          const randomImage = directionImages[Math.floor(Math.random() * directionImages.length)];
-          generatedStimuli.push({
-            id: Date.now().toString() + i,
-            type: 'image',
-            content: randomImage,
-            duration: stimulusDuration,
-            category: randomDirection,
-          });
+          // Animation complete
+          if (markRewardCollected) {
+            setRewardCollected(true);
+          }
+
+          if (currentTrialRef.current) {
+            currentTrialRef.current.endTime = new Date();
+            setTrialData((prev) => [...prev]);
+          }
+
+          onComplete();
+        }
+      };
+
+      animationRef.current = requestAnimationFrame(animate);
+    },
+    []
+  );
+
+  // Present the next stimulus in the sequence
+  const presentNextStimulus = useCallback(() => {
+    // Avoid duplicate processing of the same stimulus
+    const alreadyProcessed = trialData.some(
+      (trial) => trial.trialIndex === currentStimulusIndex
+    );
+    if (alreadyProcessed) {
+      return;
+    }
+
+    // Check if we've presented all stimuli
+    if (currentStimulusIndex >= stimuliRef.current.length) {
+      console.log('All stimuli presented, ending session');
+      setSessionEndTime(new Date());
+      setIsPresenting(false);
+      setSessionComplete(true);
+      return;
+    }
+
+    // Get the current stimulus and determine trial type
+    const currentStimulus = stimuliRef.current[currentStimulusIndex];
+    const currentIsStopTrial = currentStimulus.direction === 'stop';
+
+    // Create trial data record
+    const newTrial: TrialData = {
+      trialIndex: currentStimulusIndex,
+      direction: currentStimulus.direction,
+      isStopTrial: currentIsStopTrial,
+      startTime: new Date(),
+    };
+
+    console.log('New trial:', {
+      index: newTrial.trialIndex,
+      direction: newTrial.direction,
+      isStopTrial: newTrial.isStopTrial,
+    });
+
+    currentTrialRef.current = newTrial;
+    setTrialData((prev) => [...prev, newTrial]);
+
+    // Reset for the new stimulus
+    setIsStopTrial(currentIsStopTrial);
+    setShowStopSign(false);
+    setEmojiPosition({
+      x: SIMULATION_CENTER_X,
+      y: SIMULATION_CENTER_Y,
+    });
+    setRewardCollected(false);
+
+    // For stop trials, pick a random direction for visual display
+    let effectiveDirection = currentStimulus.direction;
+    if (currentIsStopTrial) {
+      const directions = DIRECTIONS.filter((d) => d !== 'stop');
+      effectiveDirection = directions[
+        Math.floor(Math.random() * directions.length)
+      ] as Direction;
+    }
+
+    // Position the reward based on direction
+    const newRewardPosition = calculateRewardPosition(effectiveDirection);
+    setRewardPosition(newRewardPosition);
+
+    // Show initial trigger
+    setShowTrigger(true);
+    setTimeout(() => {
+      setShowTrigger(false);
+    }, TRIGGER_DURATION);
+
+    // After delay, start movement
+    setTimeout(
+      () => {
+        if (currentIsStopTrial) {
+          // For stop trials, calculate stopping point and show stop sign
+          const startPos = { x: SIMULATION_CENTER_X, y: SIMULATION_CENTER_Y };
+          const stopPosition = calculateStopPosition(
+            startPos,
+            newRewardPosition
+          );
+
+          setShowTrigger(true);
+          setShowStopSign(true);
+          setTimeout(() => {
+            setShowTrigger(false);
+          }, TRIGGER_DURATION);
+
+          // Animate to stopping point
+          animateEmojiMovement(
+            startPos,
+            stopPosition,
+            EMOJI_MOVEMENT_DURATION + delayBeforeMovement,
+            false,
+            () => {
+              setTimeout(() => {
+                setCurrentStimulusIndex((prev) => prev + 1);
+              }, POST_REWARD_PAUSE);
+            }
+          );
+        } else {
+          // For normal trials, move to reward
+          animateEmojiMovement(
+            { x: SIMULATION_CENTER_X, y: SIMULATION_CENTER_Y },
+            newRewardPosition,
+            EMOJI_MOVEMENT_DURATION,
+            true,
+            () => {
+              setTimeout(() => {
+                setCurrentStimulusIndex((prev) => prev + 1);
+              }, POST_REWARD_PAUSE);
+            }
+          );
+        }
+      },
+      currentIsStopTrial ? 0 : delayBeforeMovement
+    );
+  }, [
+    currentStimulusIndex,
+    delayBeforeMovement,
+    animateEmojiMovement,
+    calculateStopPosition,
+    trialData,
+  ]);
+
+  const handleReturnToConfig = useCallback(async () => {
+    if (!sessionEndTime && sessionStartTime) {
+      const newEndTime = new Date();
+      setSessionEndTime(newEndTime);
+
+      if (sessionStartTime && stimuliRef.current.length > 0) {
+        const exportContent = createExportContent(
+          participantNumber,
+          sessionStartTime,
+          newEndTime
+        );
+        const fileName = createFileName(participantNumber);
+
+        try {
+          await saveDataToFile(exportContent, fileName);
+          setHasExportedData(true);
+        } catch (err) {
+          console.error('Failed to export data:', err);
         }
       }
+    } else if (
+      !hasExportedData &&
+      sessionStartTime &&
+      sessionEndTime &&
+      stimuliRef.current.length > 0
+    ) {
+      await exportSessionData();
     }
-    
-    return generatedStimuli;
-  };
-  
-  const handleStopPresentation = useCallback(() => {
+
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+
     setIsPresenting(false);
-    setCurrentStimulus(null);
-    setShowTrigger(false);
-    setCountdown(null);
     setShowDirections(false);
-    currentIndexRef.current = 0;
-  }, []);
-  
-  const presentNextStimulus = useCallback(() => {
-    if (currentIndexRef.current >= stimuliRef.current.length) {
-      handleStopPresentation();
-      return;
+    setCountdown(null);
+    setSessionComplete(false);
+    setCurrentStimulusIndex(0);
+    setEmojiPosition({
+      x: SIMULATION_CENTER_X,
+      y: SIMULATION_CENTER_Y,
+    });
+    setShowTrigger(false);
+    setRewardCollected(false);
+    setIsStopTrial(false);
+    setShowStopSign(false);
+
+    setSessionStartTime(null);
+    setSessionEndTime(null);
+    setTrialData([]);
+    setHasExportedData(false);
+  }, [
+    hasExportedData,
+    sessionStartTime,
+    sessionEndTime,
+    trialData,
+    exportSessionData,
+    participantNumber,
+  ]);
+
+  const createExportContent = (
+    partNum: string,
+    startTime: Date,
+    endTime: Date
+  ): string => {
+    const startTimeStr = startTime.toISOString();
+    const endTimeStr = endTime.toISOString();
+    const allStimuli = stimuliRef.current;
+
+    let content = `Participant ID: ${partNum}\n`;
+    content += `Session Start: ${startTimeStr}\n`;
+    content += `Session End: ${endTimeStr}\n`;
+    content += `Total Stimuli: ${allStimuli.length}\n\n`;
+    content += `Stimulus Order:\n`;
+
+    allStimuli.forEach((stimulus, index) => {
+      content += `Stimulus ${index + 1}: ${stimulus.direction.toUpperCase()}`;
+      if (stimulus.direction === 'stop') content;
+      content += '\n';
+    });
+
+    return content;
+  };
+
+  const createFileName = (partNum: string): string => {
+    const date = new Date();
+    const dateStr = date.toISOString().split('T')[0];
+    const timeStr = date.toTimeString().split(' ')[0].replace(/:/g, '');
+    return `participant_${partNum.padStart(3, '0')}_${dateStr}_${timeStr}.txt`;
+  };
+
+  const saveDataToFile = async (
+    content: string,
+    fileName: string
+  ): Promise<boolean> => {
+    const stimulusApi = (window as any).stimulusApi;
+
+    if (stimulusApi && typeof stimulusApi.saveSessionData === 'function') {
+      const result = await stimulusApi.saveSessionData(content, fileName);
+
+      if (result && result.success) {
+        return true;
+      } else {
+        console.error(
+          `Failed to save data:`,
+          result ? result.message : 'No result returned'
+        );
+        return false;
+      }
+    } else {
+      console.warn(
+        'Electron API not available, using browser download fallback'
+      );
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+
+      return true;
     }
-    
-    const stimulus = stimuliRef.current[currentIndexRef.current];
-    setCurrentStimulus(stimulus);
-    setShowTrigger(true);
-    
-    // Hide trigger after 100ms
-    const triggerTimer = setTimeout(() => {
-      setShowTrigger(false);
-    }, TRIGGER_DISPLAY_DURATION);
-    
-    // Schedule the next stimulus
-    const nextTimer = setTimeout(() => {
-      currentIndexRef.current++;
-      presentNextStimulus();
-    }, stimulus.duration);
-    
-    return () => {
-      clearTimeout(triggerTimer);
-      clearTimeout(nextTimer);
-    };
-  }, [handleStopPresentation]);
-  
+  };
+
   const handleStartPresentation = useCallback(() => {
-    stimuliRef.current = generateStimuli();
-    
-    if (stimuliRef.current.length === 0) {
-      setError('No stimuli to present');
+    if (!participantNumber.trim()) {
+      setError('Please enter a participant number');
       return;
     }
-    
+
+    if (stimuliPerDirection < 1) {
+      setError('Number of stimuli per direction must be at least 1');
+      return;
+    }
+
+    if (delayBeforeMovement < 500) {
+      setError('Delay must be at least 500ms');
+      return;
+    }
+
+    setSessionStartTime(new Date());
+    setSessionEndTime(null);
+    setTrialData([]);
+    setHasExportedData(false);
+    setCurrentStimulusIndex(0);
+
+    stimuliRef.current = generateStimuli();
+
+    if (stimuliRef.current.length === 0) {
+      setError(
+        'No stimuli to present. Please set the number of stimuli per direction to at least 1.'
+      );
+      return;
+    }
+
     setShowDirections(true);
-    
-    // After a delay, start the countdown
+
     const directionsTimer = setTimeout(() => {
       setShowDirections(false);
       setCountdown(5);
-      
+
       let count = 5;
       const countdownInterval = setInterval(() => {
         count--;
@@ -393,106 +525,134 @@ const StimulusDisplay = () => {
           clearInterval(countdownInterval);
           setCountdown(null);
           setIsPresenting(true);
-          currentIndexRef.current = 0;
-          presentNextStimulus();
         } else {
           setCountdown(count);
         }
       }, 1000);
-      
+
       return () => {
         clearInterval(countdownInterval);
       };
     }, DIRECTION_DISPLAY_DURATION);
-    
+
     return () => {
       clearTimeout(directionsTimer);
     };
-  }, [generateStimuli, presentNextStimulus]);
-  
-  // Handle keyboard shortcuts
+  }, [
+    generateStimuli,
+    participantNumber,
+    stimuliPerDirection,
+    delayBeforeMovement,
+  ]);
+
+  useEffect(() => {
+    if (isPresenting) {
+      if (currentStimulusIndex < stimuliRef.current.length) {
+        presentNextStimulus();
+      } else {
+        setIsPresenting(false);
+        setSessionComplete(true);
+      }
+    }
+  }, [currentStimulusIndex, isPresenting, presentNextStimulus, stimuliRef]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && (isPresenting || showDirections || countdown !== null)) {
+      if (
+        e.key === 'Escape' &&
+        (isPresenting || showDirections || countdown !== null)
+      ) {
         handleStopPresentation();
-      } else if (e.key === 's' && !isPresenting && !showDirections && countdown === null) {
+      } else if (
+        e.key === 's' &&
+        !isPresenting &&
+        !showDirections &&
+        countdown === null &&
+        !sessionComplete
+      ) {
         handleStartPresentation();
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [handleStopPresentation, handleStartPresentation, isPresenting, showDirections, countdown]);
-  
-  // Handle window resize
+  }, [
+    handleStopPresentation,
+    handleStartPresentation,
+    isPresenting,
+    showDirections,
+    countdown,
+    sessionComplete,
+  ]);
+
   useEffect(() => {
-    const handleResize = () => {
-      if (isPresenting) {
-        // Adjust any size-dependent variables here
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
       }
     };
-    
-    window.addEventListener('resize', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [isPresenting]);
-  
-  if (!imagePaths.loaded) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center">
-        <div className="text-center p-5">
-          <div className="spinner-border" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-          <p className="mt-3">Loading image resources...</p>
-        </div>
-      </div>
-    );
-  }
-  
+  }, []);
+
   return (
-    <div style={{ 
-      height: '100vh', 
-      width: '100vw', 
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      margin: 0,
-      padding: 0,
-      overflow: 'hidden',
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      backgroundColor: '#f8f9fa'
-    }}>
-      {isPresenting || showDirections || countdown !== null ? (
+    <div
+      style={{
+        height: '100vh',
+        width: '100vw',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        margin: 0,
+        padding: 0,
+        overflow: 'hidden',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        backgroundColor: '#f8f9fa',
+      }}
+    >
+      {isPresenting ||
+      showDirections ||
+      countdown !== null ||
+      sessionComplete ? (
         <div className="stimulus-presentation w-full h-full">
-          <Card className="h-full w-full" style={{ 
-            height: '100vh', 
-            width: '100vw', 
-            margin: 0, 
-            borderRadius: 0 
-          }}>
+          <Card
+            className="h-full w-full"
+            style={{
+              height: '100vh',
+              width: '100vw',
+              margin: 0,
+              borderRadius: 0,
+            }}
+          >
             <Card.Header className="d-flex justify-content-between align-items-center">
               <span>
-                {showDirections ? 'Instructions' : 
-                 countdown !== null ? 'Starting Soon...' : 
-                 `Presenting Stimulus: ${currentIndexRef.current + 1} of ${stimuliRef.current.length}`}
+                {showDirections
+                  ? 'Instructions'
+                  : countdown !== null
+                    ? 'Starting Soon...'
+                    : sessionComplete
+                      ? `Session Complete - Participant ${participantNumber}`
+                      : isPresenting &&
+                          currentStimulusIndex < stimuliRef.current.length
+                        ? `Stimulus ${currentStimulusIndex + 1} of ${stimuliRef.current.length} (${stimuliRef.current[currentStimulusIndex].direction})`
+                        : ''}
               </span>
-              <Button 
-                variant="danger" 
-                onClick={handleStopPresentation}
-                aria-label="Stop presentation"
-              >
-                Stop (ESC)
-              </Button>
+              {!sessionComplete && (
+                <Button
+                  variant="danger"
+                  onClick={handleStopPresentation}
+                  aria-label="Stop presentation"
+                >
+                  Stop (ESC)
+                </Button>
+              )}
             </Card.Header>
-            
-            <Card.Body style={{ 
-                height: 'calc(100vh - 126px)', 
+
+            <Card.Body
+              style={{
+                height: 'calc(100vh - 126px)',
                 width: '100%',
                 position: 'relative',
                 padding: 0,
@@ -500,41 +660,39 @@ const StimulusDisplay = () => {
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                backgroundColor: '#fff'
-              }}>
-              {showTrigger && currentStimulus && !showDirections && countdown === null && (
-                <div 
-                  style={{ 
-                    position: 'absolute', 
-                    bottom: '0px', 
-                    right: '0px', 
-                    width: '50px', 
-                    height: '50px', 
-                    backgroundColor: 'black',
-                    zIndex: 1000
-                  }} 
-                  aria-hidden="true"
-                />
-              )}
-              
+                backgroundColor: '#fff',
+              }}
+            >
               {showDirections ? (
-                <Instructions />
+                <InstructionsView />
               ) : countdown !== null ? (
-                <Countdown value={countdown} />
-              ) : currentStimulus && (
-                <StimulusView stimulus={currentStimulus} />
-              )}
+                <CountdownView value={countdown} />
+              ) : sessionComplete ? (
+                <CompletionView
+                  onRestart={handleReturnToConfig}
+                  totalTrials={stimuliRef.current.length}
+                />
+              ) : isPresenting &&
+                currentStimulusIndex < stimuliRef.current.length ? (
+                <IntersectionView
+                  emojiPosition={emojiPosition}
+                  rewardPosition={rewardPosition}
+                  showTrigger={showTrigger}
+                  rewardCollected={rewardCollected}
+                  isStopTrial={isStopTrial && showStopSign}
+                />
+              ) : null}
             </Card.Body>
           </Card>
         </div>
       ) : (
-        <ConfigurationPanel 
-          stimulusType={stimulusType}
-          setType={setStimulusType}
-          numStimuli={numStimuli}
-          setNumStimuli={setNumStimuli}
-          stimulusDuration={stimulusDuration}
-          setDuration={setStimulusDuration}
+        <ConfigurationPanel
+          stimuliPerDirection={stimuliPerDirection}
+          setStimuliPerDirection={setStimuliPerDirection}
+          delayBeforeMovement={delayBeforeMovement}
+          setDelayBeforeMovement={setDelayBeforeMovement}
+          participantNumber={participantNumber}
+          setParticipantNumber={setParticipantNumber}
           onStart={handleStartPresentation}
           error={error}
           setError={setError}

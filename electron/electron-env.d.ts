@@ -24,4 +24,14 @@ declare namespace NodeJS {
 // Used in Renderer process, expose in `preload.ts`
 interface Window {
   ipcRenderer: import('electron').IpcRenderer
+  stimulusApi: {
+    saveSessionData: (data: string, filename: string) => Promise<{
+      success: boolean;
+      path?: string;
+      message?: string;
+    }>;
+  };
+  electronAPI: {
+    onMainProcessMessage: (callback: (message: string) => void) => void;
+  };
 }

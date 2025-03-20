@@ -3,32 +3,19 @@ const electron = require("electron");
 const path = require("path");
 const fs = require("fs");
 const setupIpcHandlers = () => {
-  console.log("Setting up IPC handlers for stimulus presentation");
-  electron.ipcMain.handle("stimulus:getImagePaths", async () => {
+  electron.ipcMain.handle("stimulus:saveSessionData", async (_, data, filename) => {
     try {
-      const result = {};
-      const categories = ["left", "right", "forward", "backward", "stop"];
-      const assetsPath = path.join(process.env.APP_ROOT || "", "src/assets/images");
-      console.log("Scanning for images in:", assetsPath);
-      for (const category of categories) {
-        const categoryPath = path.join(assetsPath, category);
-        if (fs.existsSync(categoryPath) && fs.statSync(categoryPath).isDirectory()) {
-          const files = fs.readdirSync(categoryPath).filter((file) => {
-            const ext = path.extname(file).toLowerCase();
-            return [".jpg", ".jpeg", ".png", ".gif", ".svg"].includes(ext);
-          }).map((file) => {
-            return `src/assets/images/${category}/${file}`;
-          });
-          result[category] = files;
-          console.log(`Found ${files.length} images for ${category}`);
-        } else {
-          result[category] = [];
-          console.log(`No directory found for ${category}`);
-        }
+      const projectRoot = process.env.APP_ROOT || electron.app.getAppPath();
+      const dataDir = path.join(projectRoot, "data");
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
       }
-      return { success: true, paths: result };
+      const filePath = path.join(dataDir, filename);
+      fs.writeFileSync(filePath, data);
+      console.log(`Session data automatically saved to: ${filePath}`);
+      return { success: true, path: filePath };
     } catch (error) {
-      console.error("Failed to get image paths:", error);
+      console.error("Failed to save session data:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
       return { success: false, message: errorMessage };
     }

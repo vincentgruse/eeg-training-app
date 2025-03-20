@@ -2,8 +2,10 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 // Expose protected methods for stimulus presentation
 contextBridge.exposeInMainWorld('stimulusApi', {
-  // Get all image paths from the assets directory
-  getImagePaths: () => ipcRenderer.invoke('stimulus:getImagePaths')
+  // Save data to file
+  saveSessionData: (data: string, filename: string) => {
+    return ipcRenderer.invoke('stimulus:saveSessionData', data, filename);
+  }
 })
 
 // For main process messages

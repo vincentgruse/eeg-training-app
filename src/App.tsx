@@ -1,5 +1,5 @@
-import { Container, Navbar } from 'react-bootstrap'
-import StimulusDisplay from './components/StimuliPresentation/StimulusDisplay'
+import { Container, Navbar } from 'react-bootstrap';
+import StimulusDisplay from './components/StimuliPresentation/StimulusDisplay';
 
 function App() {
   return (
@@ -15,7 +15,7 @@ function App() {
         <StimulusDisplay />
       </Container>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

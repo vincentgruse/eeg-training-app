@@ -1,8 +1,8 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App'
-import 'bootstrap/dist/css/bootstrap.min.css'
-import './assets/index.css'
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import './assets/index.css';
 
 declare global {
   interface Window {
@@ -15,8 +15,8 @@ declare global {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
-  </React.StrictMode>,
-)
+  </React.StrictMode>
+);
 
 if (window.electronAPI) {
   window.electronAPI.onMainProcessMessage((message) => {
