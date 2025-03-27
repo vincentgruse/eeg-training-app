@@ -14,3 +14,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('main-process-message', (_event, message) => callback(message));
   }
 })
+
+// Expose EEG processing methods
+contextBridge.exposeInMainWorld('eegProcessorApi', {
+  // Browse for EEG data file
+  browseForEegFile: () => {
+    return ipcRenderer.invoke('eeg:browseForFile');
+  },
+  
+  // Process EEG data with a specific file
+  processEEGData: (filePath: string) => {
+    return ipcRenderer.invoke('eeg:processData', filePath);
+  }
+});

@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron'
 import path from 'path'
 import { setupIpcHandlers } from './ipc'
+import { setupEEGProcessorHandlers } from './eeg-processor-integration'
 
 process.env.DIST = path.join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged 
@@ -23,6 +24,9 @@ function createWindow() {
 
   // Initialize custom IPC handlers
   setupIpcHandlers()
+  
+  // Initialize EEG processor handlers
+  setupEEGProcessorHandlers()
 
   // Test active push message to Renderer-process
   win.webContents.on('did-finish-load', () => {
