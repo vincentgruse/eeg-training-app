@@ -1,26 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-// Expose protected methods that allow the renderer process to use
-// the ipcRenderer without exposing the entire object
-contextBridge.exposeInMainWorld('eegApi', {
-  connect: (params: { serialPort: string }) => ipcRenderer.invoke('eeg:connect', params),
-  startStream: () => ipcRenderer.invoke('eeg:startStream'),
-  stopStream: () => ipcRenderer.invoke('eeg:stopStream'),
-  getData: () => ipcRenderer.invoke('eeg:getData'),
-  disconnect: () => ipcRenderer.invoke('eeg:disconnect'),
-  addMarker: (marker: string) => ipcRenderer.invoke('eeg:addMarker', marker)
-})
-
-// For stimulus presentation
+// Expose protected methods for stimulus presentation
 contextBridge.exposeInMainWorld('stimulusApi', {
-  present: (stimulus: any) => ipcRenderer.invoke('stimulus:present', stimulus)
-})
-
-// For recording
-contextBridge.exposeInMainWorld('recordingApi', {
-  startRecording: (sessionInfo: any) => ipcRenderer.invoke('recording:start', sessionInfo),
-  stopRecording: () => ipcRenderer.invoke('recording:stop'),
-  addMarker: (marker: string) => ipcRenderer.invoke('recording:addMarker', marker)
+  // Save data to file
+  saveSessionData: (data: string, filename: string) => {
+    return ipcRenderer.invoke('stimulus:saveSessionData', data, filename);
+  }
 })
 
 // For main process messages
@@ -29,3 +14,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('main-process-message', (_event, message) => callback(message));
   }
 })
+
+// Expose EEG processing methods
+contextBridge.exposeInMainWorld('eegProcessorApi', {
+  // Browse for EEG data file
+  browseForEegFile: () => {
+    return ipcRenderer.invoke('eeg:browseForFile');
+  },
+  
+  // Process EEG data with a specific file
+  processEEGData: (filePath: string) => {
+    return ipcRenderer.invoke('eeg:processData', filePath);
+  }
+});

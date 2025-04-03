@@ -7,6 +7,7 @@
     "build": "vite build",
     "rebuild": "electron-rebuild -f -w brainflow koffi",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "prettier": "prettier --write \"src/**/*.{ts,tsx}\"",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -15,6 +16,7 @@
     "brainflow": "^5.16.0",
     "eeg-training-app": "file:",
     "koffi": "^2.10.1",
+    "prettier": "^3.5.3",
     "react": "^18.2.0",
     "react-bootstrap": "^2.10.9",
     "react-dom": "^18.2.0",
