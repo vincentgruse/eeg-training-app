@@ -7,7 +7,9 @@ const CompletionView: React.FC<CompletionViewProps> = ({
   totalTrials,
 }) => {
   const [processing, setProcessing] = useState(false);
-  const [processingSuccess, setProcessingSuccess] = useState<boolean | null>(null);
+  const [processingSuccess, setProcessingSuccess] = useState<boolean | null>(
+    null
+  );
   const [processingMessage, setProcessingMessage] = useState<string>('');
   const [selectedEegFile, setSelectedEegFile] = useState<string>('');
 
@@ -48,18 +50,22 @@ const CompletionView: React.FC<CompletionViewProps> = ({
     setProcessingMessage('');
 
     try {
-      const result = await window.eegProcessorApi.processEEGData(selectedEegFile);
+      const result =
+        await window.eegProcessorApi.processEEGData(selectedEegFile);
 
       if (result.success) {
         setProcessingSuccess(true);
         setProcessingMessage('EEG data processed successfully!');
       } else {
         setProcessingSuccess(false);
-        setProcessingMessage(`Error processing EEG data: ${result.error || 'Unknown error'}`);
+        setProcessingMessage(
+          `Error processing EEG data: ${result.error || 'Unknown error'}`
+        );
       }
     } catch (error: unknown) {
       setProcessingSuccess(false);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
       setProcessingMessage(`Error: ${errorMessage}`);
     } finally {
       // Slight delay before returning to show the success/error message
@@ -93,12 +99,15 @@ const CompletionView: React.FC<CompletionViewProps> = ({
         Thank you for completing all {totalTrials} stimulus trials.
       </p>
       <p style={{ fontSize: '1.2rem', marginBottom: '2rem' }}>
-        Your data has been recorded successfully and will be saved automatically.
+        Your data has been recorded successfully and will be saved
+        automatically.
       </p>
 
       <div className="w-100 mb-4" style={{ maxWidth: '500px' }}>
         <Form.Group className="mb-3">
-          <Form.Label><strong>Select EEG Data File</strong></Form.Label>
+          <Form.Label>
+            <strong>Select EEG Data File</strong>
+          </Form.Label>
           <div className="d-flex">
             <Form.Control
               type="text"
@@ -111,9 +120,7 @@ const CompletionView: React.FC<CompletionViewProps> = ({
               Browse...
             </Button>
           </div>
-          <Form.Text>
-            Select the OpenBCI-RAW-*.txt file to process
-          </Form.Text>
+          <Form.Text>Select the OpenBCI-RAW-*.txt file to process</Form.Text>
         </Form.Group>
       </div>
 

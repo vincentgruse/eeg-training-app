@@ -124,6 +124,30 @@ const StimulusDisplay: React.FC = () => {
     []
   );
 
+  // Flashes the trigger square in a distinctive pattern for EEG data synchronization
+  const flashTriggerPattern = useCallback(
+    (pattern: boolean[], duration: number = 200) => {
+      let index = 0;
+      setShowTrigger(false);
+
+      const flashInterval = setInterval(() => {
+        if (index < pattern.length) {
+          setShowTrigger(pattern[index]);
+          index++;
+        } else {
+          clearInterval(flashInterval);
+          setShowTrigger(false);
+        }
+      }, duration);
+
+      return () => {
+        clearInterval(flashInterval);
+        setShowTrigger(false);
+      };
+    },
+    []
+  );
+
   // Export session data to a file
   const exportSessionData = useCallback(async () => {
     if (
@@ -154,36 +178,55 @@ const StimulusDisplay: React.FC = () => {
     }
   }, [sessionStartTime, sessionEndTime, stimuliRef, participantNumber]);
 
+  // Handle early termination of presentation
   const handleStopPresentation = useCallback(() => {
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
     }
 
-    if (isPresenting && !sessionEndTime) {
-      setSessionEndTime(new Date());
-    }
+    // Send emergency stop session trigger pattern - an alternating pattern
+    const emergencyStopPattern = [
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+    ];
+    flashTriggerPattern(emergencyStopPattern, 100); // Faster flashing for emergency stop
 
-    if (currentTrialRef.current && !currentTrialRef.current.endTime) {
-      currentTrialRef.current.endTime = new Date();
-      setTrialData((prev) => [...prev]);
-    }
+    setTimeout(() => {
+      if (isPresenting && !sessionEndTime) {
+        setSessionEndTime(new Date());
+      }
 
-    setIsPresenting(false);
-    setShowDirections(false);
-    setCountdown(null);
-    setSessionComplete(false);
-    setCurrentStimulusIndex(0);
-    setEmojiPosition({
-      x: SIMULATION_CENTER_X,
-      y: SIMULATION_CENTER_Y,
-    });
-    setShowTrigger(false);
-    setRewardCollected(false);
-    setIsStopTrial(false);
-    setShowStopSign(false);
-  }, [isPresenting, sessionEndTime]);
+      if (currentTrialRef.current && !currentTrialRef.current.endTime) {
+        currentTrialRef.current.endTime = new Date();
+        setTrialData((prev) => [...prev]);
+      }
 
+      setIsPresenting(false);
+      setShowDirections(false);
+      setCountdown(null);
+      setSessionComplete(false);
+      setCurrentStimulusIndex(0);
+      setEmojiPosition({
+        x: SIMULATION_CENTER_X,
+        y: SIMULATION_CENTER_Y,
+      });
+      setShowTrigger(false);
+      setRewardCollected(false);
+      setIsStopTrial(false);
+      setShowStopSign(false);
+    }, 1500); // Shorter wait time for emergency stop
+  }, [isPresenting, sessionEndTime, flashTriggerPattern]);
+
+  // Animate the emoji movement from start to end position
   const animateEmojiMovement = useCallback(
     (
       startPos: Position,
@@ -257,12 +300,6 @@ const StimulusDisplay: React.FC = () => {
       isStopTrial: currentIsStopTrial,
       startTime: new Date(),
     };
-
-    console.log('New trial:', {
-      index: newTrial.trialIndex,
-      direction: newTrial.direction,
-      isStopTrial: newTrial.isStopTrial,
-    });
 
     currentTrialRef.current = newTrial;
     setTrialData((prev) => [...prev, newTrial]);
@@ -349,67 +386,89 @@ const StimulusDisplay: React.FC = () => {
     trialData,
   ]);
 
+  // Handle return to configuration screen
   const handleReturnToConfig = useCallback(async () => {
-    if (!sessionEndTime && sessionStartTime) {
-      const newEndTime = new Date();
-      setSessionEndTime(newEndTime);
+    // Send end session trigger pattern - distinct from the start pattern
+    // A long flash followed by 3 quick flashes (inverse of start pattern)
+    const endSessionPattern = [
+      true,
+      true,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+    ];
+    flashTriggerPattern(endSessionPattern, 150);
 
-      if (sessionStartTime && stimuliRef.current.length > 0) {
-        const exportContent = createExportContent(
-          participantNumber,
-          sessionStartTime,
-          newEndTime
-        );
-        const fileName = createFileName(participantNumber);
+    // Wait for the end pattern to complete before proceeding
+    setTimeout(async () => {
+      if (!sessionEndTime && sessionStartTime) {
+        const newEndTime = new Date();
+        setSessionEndTime(newEndTime);
 
-        try {
-          await saveDataToFile(exportContent, fileName);
-          setHasExportedData(true);
-        } catch (err) {
-          console.error('Failed to export data:', err);
+        if (sessionStartTime && stimuliRef.current.length > 0) {
+          const exportContent = createExportContent(
+            participantNumber,
+            sessionStartTime,
+            newEndTime
+          );
+          const fileName = createFileName(participantNumber);
+
+          try {
+            await saveDataToFile(exportContent, fileName);
+            setHasExportedData(true);
+          } catch (err) {
+            console.error('Failed to export data:', err);
+          }
         }
+      } else if (
+        !hasExportedData &&
+        sessionStartTime &&
+        sessionEndTime &&
+        stimuliRef.current.length > 0
+      ) {
+        await exportSessionData();
       }
-    } else if (
-      !hasExportedData &&
-      sessionStartTime &&
-      sessionEndTime &&
-      stimuliRef.current.length > 0
-    ) {
-      await exportSessionData();
-    }
 
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
-    }
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
 
-    setIsPresenting(false);
-    setShowDirections(false);
-    setCountdown(null);
-    setSessionComplete(false);
-    setCurrentStimulusIndex(0);
-    setEmojiPosition({
-      x: SIMULATION_CENTER_X,
-      y: SIMULATION_CENTER_Y,
-    });
-    setShowTrigger(false);
-    setRewardCollected(false);
-    setIsStopTrial(false);
-    setShowStopSign(false);
+      // Reset all state
+      setIsPresenting(false);
+      setShowDirections(false);
+      setCountdown(null);
+      setSessionComplete(false);
+      setCurrentStimulusIndex(0);
+      setEmojiPosition({
+        x: SIMULATION_CENTER_X,
+        y: SIMULATION_CENTER_Y,
+      });
+      setShowTrigger(false);
+      setRewardCollected(false);
+      setIsStopTrial(false);
+      setShowStopSign(false);
 
-    setSessionStartTime(null);
-    setSessionEndTime(null);
-    setTrialData([]);
-    setHasExportedData(false);
+      setSessionStartTime(null);
+      setSessionEndTime(null);
+      setTrialData([]);
+      setHasExportedData(false);
+    }, 2000); // Wait for the end pattern to complete
   }, [
     hasExportedData,
     sessionStartTime,
     sessionEndTime,
-    trialData,
     exportSessionData,
     participantNumber,
+    flashTriggerPattern,
   ]);
 
+  // Create export file content
   const createExportContent = (
     partNum: string,
     startTime: Date,
@@ -422,18 +481,41 @@ const StimulusDisplay: React.FC = () => {
     let content = `Participant ID: ${partNum}\n`;
     content += `Session Start: ${startTimeStr}\n`;
     content += `Session End: ${endTimeStr}\n`;
-    content += `Total Stimuli: ${allStimuli.length}\n\n`;
+    content += `Total Stimuli: ${allStimuli.length}\n`;
+    content += `Session Duration: ${(endTime.getTime() - startTime.getTime()) / 1000} seconds\n\n`;
+
+    // Include trigger pattern information for EEG processing
+    content += `Trigger Pattern Information:\n`;
+    content += `- Session Start Pattern: 3 quick flashes (150ms) followed by 1 long flash (450ms)\n`;
+    content += `- Session End Pattern: 1 long flash (450ms) followed by 3 quick flashes (150ms)\n`;
+    content += `- Emergency Stop Pattern: 5 equal flashes (100ms on, 100ms off)\n`;
+    content += `- Normal Stimulus Trigger: Single flash (${TRIGGER_DURATION}ms)\n\n`;
+
     content += `Stimulus Order:\n`;
 
     allStimuli.forEach((stimulus, index) => {
-      content += `Stimulus ${index + 1}: ${stimulus.direction.toUpperCase()}`;
-      if (stimulus.direction === 'stop') content;
-      content += '\n';
+      content += `Stimulus ${index + 1}: ${stimulus.direction.toUpperCase()}\n`;
     });
+
+    // Include trial timing information if available
+    if (trialData.length > 0) {
+      content += `\nTrial Timing Data:\n`;
+      trialData.forEach((trial) => {
+        const endTimeStr = trial.endTime
+          ? trial.endTime.toISOString()
+          : 'incomplete';
+        const duration = trial.endTime
+          ? `${(trial.endTime.getTime() - trial.startTime.getTime()) / 1000} seconds`
+          : 'unknown';
+
+        content += `Trial ${trial.trialIndex + 1}: Direction=${trial.direction}, Start=${trial.startTime.toISOString()}, End=${endTimeStr}, Duration=${duration}\n`;
+      });
+    }
 
     return content;
   };
 
+  // Generate standardized filename for export
   const createFileName = (partNum: string): string => {
     const date = new Date();
     const dateStr = date.toISOString().split('T')[0];
@@ -441,6 +523,7 @@ const StimulusDisplay: React.FC = () => {
     return `participant_${partNum.padStart(3, '0')}_${dateStr}_${timeStr}.txt`;
   };
 
+  // Save data to file
   const saveDataToFile = async (
     content: string,
     fileName: string
@@ -481,6 +564,7 @@ const StimulusDisplay: React.FC = () => {
     }
   };
 
+  // Start the stimulus presentation sequence
   const handleStartPresentation = useCallback(() => {
     if (!participantNumber.trim()) {
       setError('Please enter a participant number');
@@ -497,54 +581,75 @@ const StimulusDisplay: React.FC = () => {
       return;
     }
 
-    setSessionStartTime(new Date());
-    setSessionEndTime(null);
-    setTrialData([]);
-    setHasExportedData(false);
-    setCurrentStimulusIndex(0);
+    // Send start session trigger pattern (3 quick flashes followed by 1 long flash)
+    // This pattern should be easily detected by the EEG processor
+    const startSessionPattern = [
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+    ];
+    flashTriggerPattern(startSessionPattern, 150);
 
-    stimuliRef.current = generateStimuli();
+    setTimeout(() => {
+      setSessionStartTime(new Date());
+      setSessionEndTime(null);
+      setTrialData([]);
+      setHasExportedData(false);
+      setCurrentStimulusIndex(0);
 
-    if (stimuliRef.current.length === 0) {
-      setError(
-        'No stimuli to present. Please set the number of stimuli per direction to at least 1.'
-      );
-      return;
-    }
+      stimuliRef.current = generateStimuli();
 
-    setShowDirections(true);
+      if (stimuliRef.current.length === 0) {
+        setError(
+          'No stimuli to present. Please set the number of stimuli per direction to at least 1.'
+        );
+        return;
+      }
 
-    const directionsTimer = setTimeout(() => {
-      setShowDirections(false);
-      setCountdown(5);
+      // Show instructions and then start countdown
+      setShowDirections(true);
 
-      let count = 5;
-      const countdownInterval = setInterval(() => {
-        count--;
-        if (count <= 0) {
+      const directionsTimer = setTimeout(() => {
+        setShowDirections(false);
+        setCountdown(5);
+
+        let count = 5;
+        const countdownInterval = setInterval(() => {
+          count--;
+          if (count <= 0) {
+            clearInterval(countdownInterval);
+            setCountdown(null);
+            setIsPresenting(true);
+          } else {
+            setCountdown(count);
+          }
+        }, 1000);
+
+        return () => {
           clearInterval(countdownInterval);
-          setCountdown(null);
-          setIsPresenting(true);
-        } else {
-          setCountdown(count);
-        }
-      }, 1000);
+        };
+      }, DIRECTION_DISPLAY_DURATION);
 
       return () => {
-        clearInterval(countdownInterval);
+        clearTimeout(directionsTimer);
       };
-    }, DIRECTION_DISPLAY_DURATION);
-
-    return () => {
-      clearTimeout(directionsTimer);
-    };
+    }, 2000); // Wait for the start pattern to complete
   }, [
     generateStimuli,
     participantNumber,
     stimuliPerDirection,
     delayBeforeMovement,
+    flashTriggerPattern,
   ]);
 
+  // Effect to present next stimulus when current index changes
   useEffect(() => {
     if (isPresenting) {
       if (currentStimulusIndex < stimuliRef.current.length) {
@@ -554,8 +659,9 @@ const StimulusDisplay: React.FC = () => {
         setSessionComplete(true);
       }
     }
-  }, [currentStimulusIndex, isPresenting, presentNextStimulus, stimuliRef]);
+  }, [currentStimulusIndex, isPresenting, presentNextStimulus]);
 
+  // Keyboard shortcut effect
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
@@ -587,6 +693,7 @@ const StimulusDisplay: React.FC = () => {
     sessionComplete,
   ]);
 
+  // Cleanup effect
   useEffect(() => {
     return () => {
       if (animationRef.current) {
