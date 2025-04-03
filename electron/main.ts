@@ -22,6 +22,8 @@ function createWindow() {
     },
   })
 
+  win.maximize()
+
   // Initialize custom IPC handlers
   setupIpcHandlers()
   

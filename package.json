@@ -1,21 +1,26 @@
 {
   "name": "eeg-training-app",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "EEG data collection application for BCI research",
+  "author": {
+    "name": "Vincent Gruse",
+    "email": "grusvin10@gmail.com"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "rebuild": "electron-rebuild -f -w brainflow koffi",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "prettier": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dist": "electron-builder --publish=never",
+    "postinstall": "electron-builder install-app-deps",
+    "start": "electron ."
   },
   "dependencies": {
     "@types/recharts": "^1.8.29",
     "bootstrap": "^5.3.3",
-    "brainflow": "^5.16.0",
-    "eeg-training-app": "file:",
-    "koffi": "^2.10.1",
     "prettier": "^3.5.3",
     "react": "^18.2.0",
     "react-bootstrap": "^2.10.9",
@@ -42,6 +47,15 @@
   },
   "main": "dist-electron/main.js",
   "build": {
+    "mac": {
+      "icon": "public/favicon_white.icns"
+    },
+    "win": {
+      "icon": "public/favicon_white.ico"
+    },
+    "linux": {
+      "icon": "assets/favicon_white.png"
+    },
     "appId": "com.eeg.training.app",
     "productName": "EEG Training App",
     "files": [
@@ -50,16 +64,6 @@
     ],
     "directories": {
       "output": "release"
-    },
-    "extraResources": [
-      {
-        "from": "node_modules/brainflow/lib",
-        "to": "app.asar.unpacked/node_modules/brainflow/lib"
-      },
-      {
-        "from": "node_modules/koffi/build/Release",
-        "to": "app.asar.unpacked/node_modules/koffi/build/Release"
-      }
-    ]
+    }
   }
 }
