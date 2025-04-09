@@ -150,12 +150,7 @@ The visual stimuli were carefully designed to optimize EEG signal quality and ne
 
 The application uses a visual trigger system for synchronizing EEG data with stimuli:
 
-- **Black Square Triggers**: A black square appears in the bottom-right corner at specific timing events
-- **Trigger Patterns**:
-  - **Session Start**: 3 quick flashes followed by 1 long flash
-  - **Session End**: 1 long flash followed by 3 quick flashes
-  - **Emergency Stop**: 5 equal flashes (100ms on/off)
-  - **Normal Stimulus**: Single flash at stimulus onset (500ms)
+- **Black Square Triggers**: A black square appears for 1 second in the bottom-right corner at specific timing events
 
 #### Why Use Visual Triggers?
 
@@ -163,15 +158,11 @@ Visual triggers serve a critical purpose in EEG data collection:
 
 1. **Hardware Synchronization**: The black square is detected by a photosensor connected to the OpenBCI's analog input channel, creating precise voltage spikes in the data stream.
 
-2. **Temporal Precision**: EEG data is collected continuously at high sampling rates (typically 250Hz or higher), making it challenging to determine exactly when a stimulus was presented. Triggers provide precise temporal markers.
+2. **Temporal Precision**: EEG data is collected continuously at high sampling rates (250Hz), making it challenging to determine exactly when a stimulus was presented. Triggers provide precise temporal markers.
 
 3. **Automated Processing**: The distinctive patterns allow the Python processing script to automatically identify session boundaries and individual trials without manual intervention.
 
-4. **Experimental Robustness**: Different patterns for start, end, and emergency scenarios enable the processing algorithm to recognize these events even if some markers are missed.
-
-5. **Non-invasive Integration**: This method doesn't require modifying the OpenBCI hardware or firmware, making it compatible with standard equipment.
-
-The specific patterns were chosen to be easily distinguishable from regular signal noise and from each other. The session start/end patterns are asymmetric (start: 3 quick then 1 long; end: 1 long then 3 quick) to prevent misidentification.
+4. **Non-invasive Integration**: This method doesn't require modifying the OpenBCI hardware or firmware, making it compatible with standard equipment.
 
 ## EEG Data Processing
 
