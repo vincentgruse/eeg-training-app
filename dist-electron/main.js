@@ -1,1 +1,180 @@
-"use strict";const n=require("electron"),i=require("path"),l=require("fs"),h=require("child_process"),w=()=>{n.ipcMain.handle("stimulus:saveSessionData",async(r,o,e)=>{try{const s=process.env.APP_ROOT||n.app.getAppPath(),a=i.join(s,"data");l.existsSync(a)||l.mkdirSync(a,{recursive:!0});const p=i.join(a,e);return l.writeFileSync(p,o),console.log(`Session data automatically saved to: ${p}`),{success:!0,path:p}}catch(s){return console.error("Failed to save session data:",s),{success:!1,message:s instanceof Error?s.message:"Unknown error occurred"}}})},m=()=>{n.ipcMain.handle("eeg:browseForFile",async()=>{try{const r=await n.dialog.showOpenDialog({properties:["openFile"],title:"Select OpenBCI EEG Data File",filters:[{name:"OpenBCI Data",extensions:["txt","csv"]},{name:"All Files",extensions:["*"]}]});return r.canceled||r.filePaths.length===0?{success:!1}:{success:!0,filePath:r.filePaths[0]}}catch(r){return console.error("Error browsing for file:",r),{success:!1,error:r instanceof Error?r.message:"Unknown error"}}}),n.ipcMain.handle("eeg:processData",async(r,o)=>{try{if(!l.existsSync(o))return console.error(`EEG data file not found: ${o}`),{success:!1,error:`EEG data file not found: ${o}`};const e=i.resolve(__dirname,"../resources/eeg_processor.py");if(!l.existsSync(e))return console.error(`EEG processor script not found at: ${e}`),{success:!1,error:`EEG processor script not found at: ${e}`};const s=i.join(process.env.APP_ROOT||n.app.getAppPath(),"data");let a=y(s);if(!a)return console.error(`No participant info files found in ${s}`),{success:!1,error:`No participant info files found in ${s}`};console.log("Launching EEG processor script..."),console.log(`Script path: ${e}`),console.log(`EEG data file: ${o}`),console.log(`Participant info file: ${a}`);const p=h.spawn("python",[e,"--eeg",o,"--participant",a]);let d="",f="";return p.stdout.on("data",u=>{const c=u.toString();d+=c,console.log(`EEG Processor: ${c.trim()}`)}),p.stderr.on("data",u=>{const c=u.toString();f+=c,console.error(`EEG Processor Error: ${c.trim()}`)}),new Promise(u=>{p.on("close",c=>{c===0?(console.log("EEG processing completed successfully"),u({success:!0,output:d})):(console.error(`EEG processing failed with code ${c}`),u({success:!1,error:f||`Process exited with code ${c}`}))})})}catch(e){return console.error("Failed to launch EEG processor:",e),{success:!1,error:e instanceof Error?e.message:"Unknown error"}}})};function y(r){if(!l.existsSync(r))return console.error(`Data directory ${r} does not exist`),null;const o=[];try{for(const e of l.readdirSync(r))if(e.startsWith("participant_")&&e.endsWith(".txt")){const s=i.join(r,e);o.push([s,l.statSync(s).mtimeMs])}}catch(e){return console.error("Error reading data directory:",e),null}return o.length===0?null:(o.sort((e,s)=>s[1]-e[1]),o[0][0])}process.env.DIST=i.join(__dirname,"../dist");process.env.VITE_PUBLIC=n.app.isPackaged?process.env.DIST:i.join(process.env.DIST,"../public");let t;const g=process.env.VITE_DEV_SERVER_URL;function E(){t=new n.BrowserWindow({width:1200,height:800,webPreferences:{preload:i.join(__dirname,"preload.js"),nodeIntegration:!1,contextIsolation:!0}}),t.maximize(),w(),m(),t.webContents.on("did-finish-load",()=>{t==null||t.webContents.send("main-process-message",new Date().toLocaleString())}),g?(t.loadURL(g),t.webContents.openDevTools()):t.loadFile(i.join(process.env.DIST,"index.html"))}n.app.on("window-all-closed",()=>{process.platform!=="darwin"&&(n.app.quit(),t=null)});n.app.whenReady().then(E);n.app.on("activate",()=>{const r=n.BrowserWindow.getAllWindows();r.length===0?E():r[0].focus()});
+"use strict";
+const electron = require("electron");
+const path = require("path");
+const fs = require("fs");
+const child_process = require("child_process");
+const setupIpcHandlers = () => {
+  electron.ipcMain.handle("stimulus:saveSessionData", async (_, data, filename) => {
+    try {
+      const projectRoot = process.env.APP_ROOT || electron.app.getAppPath();
+      const dataDir = path.join(projectRoot, "data");
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      const filePath = path.join(dataDir, filename);
+      fs.writeFileSync(filePath, data);
+      console.log(`Session data automatically saved to: ${filePath}`);
+      return { success: true, path: filePath };
+    } catch (error) {
+      console.error("Failed to save session data:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      return { success: false, message: errorMessage };
+    }
+  });
+};
+const setupEEGProcessorHandlers = () => {
+  electron.ipcMain.handle("eeg:browseForFile", async () => {
+    try {
+      const result = await electron.dialog.showOpenDialog({
+        properties: ["openFile"],
+        title: "Select OpenBCI EEG Data File",
+        filters: [
+          { name: "OpenBCI Data", extensions: ["txt", "csv"] },
+          { name: "All Files", extensions: ["*"] }
+        ]
+      });
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false };
+      }
+      return {
+        success: true,
+        filePath: result.filePaths[0]
+      };
+    } catch (error) {
+      console.error("Error browsing for file:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return { success: false, error: errorMessage };
+    }
+  });
+  electron.ipcMain.handle("eeg:processData", async (_, filePath) => {
+    try {
+      if (!fs.existsSync(filePath)) {
+        console.error(`EEG data file not found: ${filePath}`);
+        return {
+          success: false,
+          error: `EEG data file not found: ${filePath}`
+        };
+      }
+      const scriptPath = path.resolve(__dirname, "../resources/eeg_processor.py");
+      if (!fs.existsSync(scriptPath)) {
+        console.error(`EEG processor script not found at: ${scriptPath}`);
+        return {
+          success: false,
+          error: `EEG processor script not found at: ${scriptPath}`
+        };
+      }
+      const dataDir = path.join(process.env.APP_ROOT || electron.app.getAppPath(), "data");
+      let participantFile = findMostRecentParticipantFile(dataDir);
+      if (!participantFile) {
+        console.error(`No participant info files found in ${dataDir}`);
+        return {
+          success: false,
+          error: `No participant info files found in ${dataDir}`
+        };
+      }
+      console.log("Launching EEG processor script...");
+      console.log(`Script path: ${scriptPath}`);
+      console.log(`EEG data file: ${filePath}`);
+      console.log(`Participant info file: ${participantFile}`);
+      const pythonProcess = child_process.spawn("python", [
+        scriptPath,
+        "--eeg",
+        filePath,
+        "--participant",
+        participantFile
+      ]);
+      let output = "";
+      let errorOutput = "";
+      pythonProcess.stdout.on("data", (data) => {
+        const text = data.toString();
+        output += text;
+        console.log(`EEG Processor: ${text.trim()}`);
+      });
+      pythonProcess.stderr.on("data", (data) => {
+        const text = data.toString();
+        errorOutput += text;
+        console.error(`EEG Processor Error: ${text.trim()}`);
+      });
+      return new Promise((resolve) => {
+        pythonProcess.on("close", (code) => {
+          if (code === 0) {
+            console.log("EEG processing completed successfully");
+            resolve({ success: true, output });
+          } else {
+            console.error(`EEG processing failed with code ${code}`);
+            resolve({ success: false, error: errorOutput || `Process exited with code ${code}` });
+          }
+        });
+      });
+    } catch (error) {
+      console.error("Failed to launch EEG processor:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return { success: false, error: errorMessage };
+    }
+  });
+};
+function findMostRecentParticipantFile(dataDir) {
+  if (!fs.existsSync(dataDir)) {
+    console.error(`Data directory ${dataDir} does not exist`);
+    return null;
+  }
+  const participantFiles = [];
+  try {
+    for (const file of fs.readdirSync(dataDir)) {
+      if (file.startsWith("participant_") && file.endsWith(".txt")) {
+        const fullPath = path.join(dataDir, file);
+        participantFiles.push([fullPath, fs.statSync(fullPath).mtimeMs]);
+      }
+    }
+  } catch (error) {
+    console.error("Error reading data directory:", error);
+    return null;
+  }
+  if (participantFiles.length === 0) {
+    return null;
+  }
+  participantFiles.sort((a, b) => b[1] - a[1]);
+  return participantFiles[0][0];
+}
+process.env.DIST = path.join(__dirname, "../dist");
+process.env.VITE_PUBLIC = electron.app.isPackaged ? process.env.DIST : path.join(process.env.DIST, "../public");
+let win;
+const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
+function createWindow() {
+  win = new electron.BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+  win.maximize();
+  setupIpcHandlers();
+  setupEEGProcessorHandlers();
+  win.webContents.on("did-finish-load", () => {
+    win == null ? void 0 : win.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
+  });
+  if (VITE_DEV_SERVER_URL) {
+    win.loadURL(VITE_DEV_SERVER_URL);
+    win.webContents.openDevTools();
+  } else {
+    win.loadFile(path.join(process.env.DIST, "index.html"));
+  }
+}
+electron.app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    electron.app.quit();
+    win = null;
+  }
+});
+electron.app.whenReady().then(createWindow);
+electron.app.on("activate", () => {
+  const allWindows = electron.BrowserWindow.getAllWindows();
+  if (allWindows.length === 0) {
+    createWindow();
+  } else {
+    allWindows[0].focus();
+  }
+});

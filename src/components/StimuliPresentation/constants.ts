@@ -5,7 +5,7 @@ export const TRIGGER_DURATION = 500;
 export const EMOJI_MOVEMENT_DURATION = 2000;
 export const POST_REWARD_PAUSE = 3000;
 
-export const TRIGGER_SIZE = 50;
+export const TRIGGER_SIZE = 100;
 
 export const EMOJI_CHAR = '🧑‍🦲';
 export const REWARD_CHAR = '🏆';

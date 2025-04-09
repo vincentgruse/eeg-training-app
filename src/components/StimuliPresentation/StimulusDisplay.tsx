@@ -9,13 +9,15 @@ import { IntersectionStimulus, Position, Direction } from './types';
 import {
   DIRECTIONS,
   DIRECTION_DISPLAY_DURATION,
-  TRIGGER_DURATION,
   EMOJI_MOVEMENT_DURATION,
   POST_REWARD_PAUSE,
   SIMULATION_CENTER_X,
   SIMULATION_CENTER_Y,
   SIMULATION_REWARD_DISTANCE,
 } from './constants';
+
+// Updated trigger duration to 1000ms (1 second)
+const TRIGGER_DURATION = 1000;
 
 interface TrialData {
   trialIndex: number;
@@ -124,30 +126,6 @@ const StimulusDisplay: React.FC = () => {
     []
   );
 
-  // Flashes the trigger square in a distinctive pattern for EEG data synchronization
-  const flashTriggerPattern = useCallback(
-    (pattern: boolean[], duration: number = 200) => {
-      let index = 0;
-      setShowTrigger(false);
-
-      const flashInterval = setInterval(() => {
-        if (index < pattern.length) {
-          setShowTrigger(pattern[index]);
-          index++;
-        } else {
-          clearInterval(flashInterval);
-          setShowTrigger(false);
-        }
-      }, duration);
-
-      return () => {
-        clearInterval(flashInterval);
-        setShowTrigger(false);
-      };
-    },
-    []
-  );
-
   // Export session data to a file
   const exportSessionData = useCallback(async () => {
     if (
@@ -185,22 +163,11 @@ const StimulusDisplay: React.FC = () => {
       animationRef.current = null;
     }
 
-    // Send emergency stop session trigger pattern - an alternating pattern
-    const emergencyStopPattern = [
-      true,
-      false,
-      true,
-      false,
-      true,
-      false,
-      true,
-      false,
-      true,
-      false,
-    ];
-    flashTriggerPattern(emergencyStopPattern, 100); // Faster flashing for emergency stop
-
+    // Show trigger for emergency stop
+    setShowTrigger(true);
     setTimeout(() => {
+      setShowTrigger(false);
+
       if (isPresenting && !sessionEndTime) {
         setSessionEndTime(new Date());
       }
@@ -223,8 +190,8 @@ const StimulusDisplay: React.FC = () => {
       setRewardCollected(false);
       setIsStopTrial(false);
       setShowStopSign(false);
-    }, 1500); // Shorter wait time for emergency stop
-  }, [isPresenting, sessionEndTime, flashTriggerPattern]);
+    }, TRIGGER_DURATION);
+  }, [isPresenting, sessionEndTime]);
 
   // Animate the emoji movement from start to end position
   const animateEmojiMovement = useCallback(
@@ -326,7 +293,7 @@ const StimulusDisplay: React.FC = () => {
     const newRewardPosition = calculateRewardPosition(effectiveDirection);
     setRewardPosition(newRewardPosition);
 
-    // Show initial trigger
+    // Show initial trigger for 1 second
     setShowTrigger(true);
     setTimeout(() => {
       setShowTrigger(false);
@@ -388,24 +355,13 @@ const StimulusDisplay: React.FC = () => {
 
   // Handle return to configuration screen
   const handleReturnToConfig = useCallback(async () => {
-    // Send end session trigger pattern - distinct from the start pattern
-    // A long flash followed by 3 quick flashes (inverse of start pattern)
-    const endSessionPattern = [
-      true,
-      true,
-      true,
-      false,
-      true,
-      false,
-      true,
-      false,
-      true,
-      false,
-    ];
-    flashTriggerPattern(endSessionPattern, 150);
+    // Show single trigger for session end
+    setShowTrigger(true);
 
-    // Wait for the end pattern to complete before proceeding
+    // Wait for the trigger to complete before proceeding
     setTimeout(async () => {
+      setShowTrigger(false);
+
       if (!sessionEndTime && sessionStartTime) {
         const newEndTime = new Date();
         setSessionEndTime(newEndTime);
@@ -458,14 +414,13 @@ const StimulusDisplay: React.FC = () => {
       setSessionEndTime(null);
       setTrialData([]);
       setHasExportedData(false);
-    }, 2000); // Wait for the end pattern to complete
+    }, TRIGGER_DURATION);
   }, [
     hasExportedData,
     sessionStartTime,
     sessionEndTime,
     exportSessionData,
     participantNumber,
-    flashTriggerPattern,
   ]);
 
   // Create export file content
@@ -484,12 +439,9 @@ const StimulusDisplay: React.FC = () => {
     content += `Total Stimuli: ${allStimuli.length}\n`;
     content += `Session Duration: ${(endTime.getTime() - startTime.getTime()) / 1000} seconds\n\n`;
 
-    // Include trigger pattern information for EEG processing
+    // Updated trigger pattern information for EEG processing
     content += `Trigger Pattern Information:\n`;
-    content += `- Session Start Pattern: 3 quick flashes (150ms) followed by 1 long flash (450ms)\n`;
-    content += `- Session End Pattern: 1 long flash (450ms) followed by 3 quick flashes (150ms)\n`;
-    content += `- Emergency Stop Pattern: 5 equal flashes (100ms on, 100ms off)\n`;
-    content += `- Normal Stimulus Trigger: Single flash (${TRIGGER_DURATION}ms)\n\n`;
+    content += `- Stimulus Trigger: Single flash (${TRIGGER_DURATION}ms)\n\n`;
 
     content += `Stimulus Order:\n`;
 
@@ -581,23 +533,12 @@ const StimulusDisplay: React.FC = () => {
       return;
     }
 
-    // Send start session trigger pattern (3 quick flashes followed by 1 long flash)
-    // This pattern should be easily detected by the EEG processor
-    const startSessionPattern = [
-      true,
-      false,
-      true,
-      false,
-      true,
-      false,
-      true,
-      true,
-      true,
-      false,
-    ];
-    flashTriggerPattern(startSessionPattern, 150);
+    // Show single trigger for session start
+    setShowTrigger(true);
 
     setTimeout(() => {
+      setShowTrigger(false);
+
       setSessionStartTime(new Date());
       setSessionEndTime(null);
       setTrialData([]);
@@ -640,13 +581,12 @@ const StimulusDisplay: React.FC = () => {
       return () => {
         clearTimeout(directionsTimer);
       };
-    }, 2000); // Wait for the start pattern to complete
+    }, TRIGGER_DURATION);
   }, [
     generateStimuli,
     participantNumber,
     stimuliPerDirection,
     delayBeforeMovement,
-    flashTriggerPattern,
   ]);
 
   // Effect to present next stimulus when current index changes
