@@ -80,8 +80,13 @@ const StimulusDisplay: React.FC = () => {
       }
     });
 
-    // Randomize order of presentation
-    return generatedStimuli.sort(() => Math.random() - 0.5);
+    // Fisher-Yates (Knuth) shuffle algorithm for better randomization
+    for (let i = generatedStimuli.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [generatedStimuli[i], generatedStimuli[j]] = [generatedStimuli[j], generatedStimuli[i]];
+    }
+
+    return generatedStimuli;
   }, [stimuliPerDirection]);
 
   // Calculate reward position based on direction
