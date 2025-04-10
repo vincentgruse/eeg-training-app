@@ -4,6 +4,8 @@
 
 - [Overview](#overview)
 - [Neuroscientific Basis](#neuroscientific-basis)
+  - [Motor Imagery vs. Language Processing](#motor-imagery-vs-language-processing)
+  - [Why Visual Scenarios?](#why-visual-scenarios)
 - [Features](#features)
 - [System Architecture](#system-architecture)
   - [Electron Application Structure](#electron-application-structure)
@@ -14,6 +16,7 @@
   - [Trigger System](#trigger-system)
 - [EEG Data Processing](#eeg-data-processing)
   - [Integration with OpenBCI](#integration-with-openbci)
+  - [Electrode Placement](#electrode-placement)
   - [Trigger Detection Circuit](#trigger-detection-circuit)
   - [File Processing Pipeline](#file-processing-pipeline)
   - [Data File Structure](#data-file-structure)
@@ -27,7 +30,10 @@
   - [EEG Processing Notes](#eeg-processing-notes)
 - [Development](#development)
   - [Project Structure](#project-structure)
+  - [Architecture Design Rationale](#architecture-design-rationale)
   - [Adding New Features](#adding-new-features)
+  - [Transfer Learning Pipeline](#transfer-learning-pipeline)
+  - [Adding New EEG Analysis Features](#adding-new-eeg-analysis-features)
 - [Contributing](#contributing)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
@@ -46,17 +52,18 @@ The application is deliberately designed to engage brain regions associated with
 
 #### Key Neural Areas Targeted:
 
-- **Primary Motor Cortex**: Located in the precentral gyrus, this area is involved in the execution of voluntary movements and is active during motor imagery (imagining movements without executing them).
-  
-- **Premotor Cortex and Supplementary Motor Area (SMA)**: These regions are crucial for motor planning and preparation, showing activity when participants are preparing to move or imagining movement.
-  
-- **Posterior Parietal Cortex**: Involved in spatial processing and sensorimotor integration, this area helps in planning spatially guided movements.
+| Brain Region | Location | Function |
+|--------------|----------|----------|
+| Primary Motor Cortex | Precentral gyrus | Execution of voluntary movements; active during motor imagery |
+| Premotor Cortex & SMA | Anterior to primary motor cortex | Motor planning and preparation; active when imagining movement |
+| Posterior Parietal Cortex | Posterior parietal lobe | Spatial processing and sensorimotor integration |
 
 #### Neural Areas Avoided:
 
-- **Wernicke's Area**: Located in the posterior section of the superior temporal gyrus, this area is involved in language comprehension and would be more active if text-based instructions were used.
-  
-- **Broca's Area**: Found in the inferior frontal gyrus, this region is involved in speech production and language processing.
+| Brain Region | Location | Function |
+|--------------|----------|----------|
+| Wernicke's Area | Posterior superior temporal gyrus | Language comprehension |
+| Broca's Area | Inferior frontal gyrus | Speech production and language processing |
 
 ### Why Visual Scenarios?
 
@@ -70,7 +77,7 @@ The intersection scenario with rewards in different directions encourages partic
 
 These neural patterns are more distinct and consistent across individuals when elicited through spatial-motor imagery rather than through verbal or text-based instructions, making them better candidates for machine learning classification.
 
-![Application screenshot](public\app_screenshot.png)
+![Application screenshot](data_collection/public/app_screenshot.png)
 
 ## Features
 
@@ -91,22 +98,6 @@ The application is built using Electron, React, and TypeScript with the followin
 - **IPC Communication**: Handles data flow between UI and system operations
 - **Python Integration**: Processes raw EEG data files using the external `eeg_processor.py` script
 
-#### Why Electron?
-
-Electron was chosen as the application framework for several important reasons:
-
-1. **Cross-Platform Compatibility**: The application needs to run on Windows, macOS, and Linux environments often found in research settings.
-
-2. **Native System Access**: Unlike web applications, Electron allows direct access to the file system for saving participant data and processing large EEG files.
-
-3. **Python Integration**: The application requires running a Python script for sophisticated EEG data processing. Electron's ability to spawn child processes makes this integration seamless.
-
-4. **Precise Timing Control**: EEG research requires precise stimulus timing. Electron provides more reliable timing control than web applications running in browsers.
-
-5. **Offline Operation**: The application needs to function in laboratory environments that may have limited or no internet connectivity.
-
-The separation between main and renderer processes enhances the application's stability, preventing UI freezes during computationally intensive operations like EEG file processing.
-
 ### Key Components
 
 1. **Configuration Panel**: Set up participant information and experiment parameters
@@ -122,7 +113,7 @@ The separation between main and renderer processes enhances the application's st
 2. **Instructions**: Participant reads instructions for the experiment
 3. **Countdown**: 5-second countdown before experiment begins
 4. **Stimulus Presentation**: Series of randomized directional stimuli
-5. **Data Processing**: Select and process the OpenBCI EEG data file
+5. **Data Processing**: Run `eeg_processor.py` and process the OpenBCI EEG data file with the acquired participant data
 6. **Completion**: Summary and preparation for next participant
 
 ### Visual Stimuli
@@ -136,15 +127,15 @@ The application displays an intersection scene with:
 
 The visual stimuli were carefully designed to optimize EEG signal quality and neural specificity:
 
-1. **Character & Reward System**: This design leverages the brain's reward-oriented attention systems. The basal ganglia and dopaminergic pathways are activated when participants anticipate the character obtaining the reward, creating stronger neural signatures.
+1. **Character & Reward System**: This design leverages the brain's reward-oriented attention systems. The basal ganglia and dopaminergic pathways are activated when participants anticipate the character obtaining the reward.
 
-2. **Four-Way Intersection**: This layout was chosen to create distinct spatial representations in the right parietal lobe, which processes spatial relationships. The clear orthogonal directions (forward, backward, left, right) produce more distinguishable neural patterns than would arbitrary or diagonal directions.
+2. **Four-Way Intersection**: This layout was chosen to create distinct spatial representations in the right parietal lobe. The clear orthogonal directions produce more distinguishable neural patterns than arbitrary or diagonal directions.
 
-3. **Stop Condition**: The stop sign (⛔) engages inhibitory control networks in the prefrontal cortex that are distinct from directional motor planning, providing a clear fifth neural state that can be detected in the EEG data.
+3. **Stop Condition**: The stop sign (⛔) engages inhibitory control networks in the prefrontal cortex that are distinct from directional motor planning.
 
-4. **Animation Timing**: The delay before movement (configurable in the UI) allows collection of pre-movement EEG data that contains the neural signature of motor planning in the premotor cortex and supplementary motor area, which occurs before the visual feedback of motion.
+4. **Animation Timing**: The delay before movement allows collection of pre-movement EEG data that contains the neural signature of motor planning.
 
-5. **Clean Visual Design**: The simple, high-contrast visuals minimize visual processing load in the occipital lobe, reducing noise in the EEG signal that would otherwise obscure the motor planning signals of interest.
+5. **Clean Visual Design**: The simple, high-contrast visuals minimize visual processing load, reducing noise in the EEG signal.
 
 ### Trigger System
 
@@ -154,15 +145,15 @@ The application uses a visual trigger system for synchronizing EEG data with sti
 
 #### Why Use Visual Triggers?
 
-Visual triggers serve a critical purpose in EEG data collection:
+Visual triggers serve several critical purposes:
 
-1. **Hardware Synchronization**: The black square is detected by a photosensor connected to the OpenBCI's analog input channel, creating precise voltage spikes in the data stream.
+1. **Hardware Synchronization**: The black square is detected by a photosensor, creating precise voltage spikes in the data stream.
 
-2. **Temporal Precision**: EEG data is collected continuously at high sampling rates (250Hz), making it challenging to determine exactly when a stimulus was presented. Triggers provide precise temporal markers.
+2. **Temporal Precision**: EEG data is collected continuously at high sampling rates (250Hz), making precise temporal markers essential.
 
-3. **Automated Processing**: The distinctive patterns allow the Python processing script to automatically identify session boundaries and individual trials without manual intervention.
+3. **Automated Processing**: The distinctive patterns allow automatic identification of session boundaries and individual trials.
 
-4. **Non-invasive Integration**: This method doesn't require modifying the OpenBCI hardware or firmware, making it compatible with standard equipment.
+4. **Non-invasive Integration**: This method doesn't require modifying the OpenBCI hardware or firmware.
 
 ## EEG Data Processing
 
@@ -170,9 +161,33 @@ Visual triggers serve a critical purpose in EEG data collection:
 
 The application is designed to work with OpenBCI hardware for EEG data collection. The raw data files (`.txt` or `.csv`) are processed after the experiment.
 
+### Electrode Placement
+
+The application uses the international 10-20 system for electrode placement, which is the standard for EEG recordings. The Ultracortex nodes on the OpenBCI headset correspond to specific locations on this system.
+
+![10-20 system diagram](data_collection/public/10-20%20system.png)
+Images source: https://docs.openbci.com/AddOns/Headwear/MarkIV/
+
+#### Channel to 10-20 System Correlations
+
+The following table shows how each channel in the OpenBCI system maps to the 10-20 system locations and their associated brain regions:
+
+| Channel | 10-20 System | Target Brain Area | Function |
+|---------|--------------|-------------------|----------|
+| 1 (N1P) | Fp1 | Left prefrontal cortex | Executive functions, decision making |
+| 2 (N2P) | Fp2 | Right prefrontal cortex | Executive functions (right hemisphere) |
+| 3 (N3P) | C3 | Left primary motor cortex | Right-sided body movement planning |
+| 4 (N4P) | C4 | Right primary motor cortex | Left-sided body movement planning |
+| 5 (N5P) | P7 | Left temporal/parietal region | Language processing, visual association |
+| 6 (N6P) | P8 | Right temporal/parietal region | Spatial processing, face recognition |
+| 7 (N7P) | O1 | Left occipital lobe | Primary visual processing |
+| 8 (N8P) | O2 | Right occipital lobe | Primary visual processing |
+
+These correspond to the default electrode locations that the OpenBCI Graphical User Interface expects.
+
 ### Trigger Detection Circuit
 
-A custom Light Dependent Resistor (LDR) circuit is used to capture the visual triggers from the screen:
+A custom Light Dependent Resistor (LDR) circuit captures the visual triggers from the screen:
 
 #### Hardware Components
 
@@ -184,19 +199,19 @@ A custom Light Dependent Resistor (LDR) circuit is used to capture the visual tr
 
 The LDR circuit connects to the OpenBCI board's analog input channel to detect the black square trigger displayed on screen.
 
-![LDR schematic](public\LDR_schematic.png)
+![LDR schematic](data_collection/public/LDR_schematic.png)
 
 #### Circuit Operation
 
 1. When the black square is not displayed (screen area is bright), the LDR has low resistance, causing the analog input to read a low voltage.
-2. When the black square appears (screen area is dark), the LDR resistance increases, causing the analog input to read a higher voltage through the pull-up resistor.
+2. When the black square appears (screen area is dark), the LDR resistance increases, causing the analog input to read a higher voltage.
 3. This voltage change creates distinct spikes in the analog channel that are detected by the EEG processing script.
 
 #### Physical Setup
 
-The LDR should be attached to the bottom-right corner of the screen (where the trigger square appears) and covered with shrink tubing or another light shield to prevent ambient light interference.
+The LDR should be attached to the bottom-right corner of the screen and covered with a light shield to prevent ambient light interference.
 
-![LDR with shield](public/LDR.png)
+![LDR with shield](data_collection/public/LDR.png)
 
 #### Why This Approach?
 
@@ -204,8 +219,8 @@ The LDR circuit was chosen for several reasons:
 
 1. **Non-invasive**: Requires no modification to the OpenBCI hardware
 2. **Low cost**: Uses inexpensive, widely available components
-3. **Reliable detection**: Creates clear voltage spikes that are easily distinguishable from background noise
-4. **No electrical connection**: Maintains electrical isolation between the computer and the EEG equipment
+3. **Reliable detection**: Creates clear voltage spikes that are easily distinguishable
+4. **No electrical connection**: Maintains electrical isolation between computer and EEG equipment
 
 ### File Processing Pipeline
 
@@ -216,6 +231,10 @@ The LDR circuit was chosen for several reasons:
 5. **Organization**: Processed data is organized by direction (LEFT, RIGHT, FORWARD, BACKWARD, STOP)
 
 ### Data File Structure
+
+#### Data Locations
+ - Participant Data: data_collection/data/
+ - Processed Data: data_collection/resources/processed_data/
 
 #### Participant Info Files
 
@@ -229,10 +248,7 @@ Total Stimuli: [count]
 Session Duration: [seconds]
 
 Trigger Pattern Information:
-- Session Start Pattern: 3 quick flashes (150ms) followed by 1 long flash (450ms)
-- Session End Pattern: 1 long flash (450ms) followed by 3 quick flashes (150ms)
-- Emergency Stop Pattern: 5 equal flashes (100ms on, 100ms off)
-- Normal Stimulus Trigger: Single flash (500ms)
+- Normal Stimulus Trigger: Single flash (1000ms)
 
 Stimulus Order:
 Stimulus 1: [DIRECTION]
@@ -248,7 +264,7 @@ Trial 1: Direction=[direction], Start=[timestamp], End=[timestamp], Duration=[se
 
 The Python processor organizes data into directories by direction:
 ```
-processed_data/
+data_collection/resources/processed_data/
 ├── FORWARD/
 │   └── participant_001_FORWARD_1.csv
 │   └── participant_001_FORWARD_2.csv
@@ -262,7 +278,7 @@ processed_data/
     └── participant_001_STOP_1.csv
 ```
 
-Each CSV file contains the EEG data for a specific stimulus with added columns for direction and trial number.
+Each CSV/TXT file contains the EEG data for a specific stimulus with added columns for direction and trial number.
 
 ## Getting Started
 
@@ -275,31 +291,26 @@ Each CSV file contains the EEG data for a specific stimulus with added columns f
 ### Installation
 
 1. Clone the repository
-```bash
+```
 git clone https://github.com/yourusername/eeg-training-app.git
 cd eeg-training-app
 ```
 
 2. Install dependencies
-```bash
+```
 npm install
 ```
 
 3. Install Python dependencies
-```bash
+```
 pip install pandas numpy
 ```
 
 ### Running the Application
 
-1. Start the development server:
-```bash
-npm run dev
+1. Start the development server (adequate for data collection):
 ```
-
-2. Build for production:
-```bash
-npm run build
+npm run dev
 ```
 
 ### Data Collection Protocol
@@ -309,16 +320,18 @@ npm run build
 3. Launch the EEG Training Application
 4. Enter participant information and configure trial settings
 5. Run through the stimulus presentation
-6. After completion, select the recorded EEG file for processing
-7. Check the `processed_data` directory for the organized EEG data files
+6. After completion, run `resources/eeg_processor.py` for processing
+    - Select the appropriate participant and eeg data files based on the trial.
+    - Set the threshold values (10 - 40 are the defaults based on testing)
+    - Verify in the console that the script detected the correct number of triggers and that the data was processed appropriately
+7. Check `resources/processed_data` for the organized EEG data files
 
 ## Troubleshooting
 
 ### Common Issues
 
-- **File Not Found Errors**: Ensure the OpenBCI file is properly saved and accessible
 - **Trigger Detection Issues**: Check that the analog channel is properly connected
-- **Application Crashes**: Verify that all dependencies are installed correctly
+- **OpenBCI Channels Railed**: Ensure that all electrodes are making sufficient contact with the participant's skull, grounding clips are attached to the participant's ears, and that all wires are connected completely
 
 ### EEG Processing Notes
 
@@ -328,39 +341,19 @@ npm run build
 
 #### Why These Processing Decisions Matter
 
-1. **Automatic Delimiter Detection**: OpenBCI software can export data with different delimiters (commas, tabs, spaces) depending on the version and export settings. Automatic detection increases robustness across different file formats.
+1. **Automatic Delimiter Detection**: OpenBCI software can export data with different delimiters depending on version and export settings. Automatic detection increases robustness.
 
-2. **Analog Channel Usage**: While OpenBCI has digital trigger inputs, using the analog channel provides better temporal resolution and allows for capturing varying trigger intensities, not just on/off states.
+2. **Analog Channel Usage**: Using the analog channel provides better temporal resolution and allows for capturing varying trigger intensities.
 
-3. **Fallback Estimation**: The fallback mechanism for estimating trigger positions is crucial for salvaging data from sessions where some triggers might have been missed due to hardware issues. This prevents complete data loss when minor hardware problems occur.
+3. **Fallback Estimation**: The fallback mechanism prevents complete data loss when minor hardware problems occur.
 
-4. **Data Segmentation Strategy**: Organizing data by direction (LEFT, RIGHT, etc.) facilitates machine learning training by allowing the model to learn distinct patterns associated with each directional intention.
+4. **Data Segmentation Strategy**: Organizing data by direction facilitates machine learning training.
 
-5. **Participant-Centric File Naming**: Including participant IDs in filenames allows for both individual analysis and aggregation across participants, supporting both personalized and generalized model development.
+5. **Participant-Centric File Naming**: Including participant IDs supports both individual analysis and aggregation across participants.
 
 ## Development
 
-### Project Structure
-
-```
-eeg-training-app/
-├── electron/
-│   ├── main.ts                  # Main Electron process
-│   ├── preload.ts               # Preload script for IPC
-│   ├── eeg-processor-integration.ts  # EEG processor integration
-│   └── ipc.ts                   # IPC handlers
-├── src/
-│   ├── StimulusDisplay.tsx      # Main stimulus presentation component
-│   ├── ConfigurationPanel.tsx   # Experiment configuration UI
-│   ├── IntersectionView.tsx     # Visual intersection display
-│   ├── CompletionView.tsx       # Session completion screen
-│   └── ...                      # Other React components
-├── resources/
-│   └── eeg_processor.py         # Python EEG data processing script
-└── data/                        # Directory for participant data files
-```
-
-#### Architecture Design Rationale
+### Architecture Design Rationale
 
 The project structure follows specific design principles for EEG research applications:
 
@@ -369,14 +362,12 @@ The project structure follows specific design principles for EEG research applic
    - **src/** contains purely UI components, making them testable in isolation
    - **resources/** contains the Python processing script, kept separate from the JavaScript codebase
 
-2. **Component-Based Design**: Each UI element is a separate component with clear responsibilities, allowing for easier maintenance and extension for future experiments.
+2. **Component-Based Design**: Each UI element is a separate component with clear responsibilities.
 
 3. **Data Flow Architecture**: The application follows a unidirectional data flow pattern, where:
    - Configuration settings flow down from parent components
    - Events flow up through callbacks
    - This prevents state synchronization issues that could affect timing precision
-
-4. **Security Considerations**: The preload script creates a controlled bridge between renderer and main processes to prevent unauthorized access to system resources.
 
 ### Adding New Features
 
@@ -384,7 +375,7 @@ The project structure follows specific design principles for EEG research applic
 - **Additional EEG Analysis**: Extend the Python processing script
 - **UI Customization**: Update the React components in the `src` directory
 
-#### Transfer Learning Pipeline
+### Transfer Learning Pipeline
 
 This application is part of a larger transfer learning pipeline for brain-computer interfaces:
 
@@ -394,19 +385,15 @@ This application is part of a larger transfer learning pipeline for brain-comput
 4. **Transfer Learning**: The base model is fine-tuned with individual participant data
 5. **Real-time Control**: The fine-tuned model is deployed for real-time robot control
 
-When extending this application, consider how changes will affect downstream components in this pipeline. For example:
+When extending this application, consider how changes will affect downstream components in this pipeline.
 
-- Adding new directions would require retraining the base model
-- Changing the EEG processing parameters could invalidate compatibility with existing models
-- Modifications to the visual stimuli might alter the neural patterns being detected
-
-#### Adding New EEG Analysis Features
+### Adding New EEG Analysis Features
 
 When extending the Python EEG processor, consider implementing:
 
-1. **Additional Frequency Band Analysis**: Add extraction of standard EEG bands (alpha, beta, theta, delta, gamma)
-2. **Spatial Filtering**: Implement Common Spatial Pattern (CSP) filtering for better signal isolation
-3. **Artifact Rejection**: Enhance the automatic detection and removal of eye blinks and muscle artifacts
+1. **Additional Frequency Band Analysis**: Add extraction of standard EEG bands
+2. **Spatial Filtering**: Implement Common Spatial Pattern (CSP) filtering
+3. **Artifact Rejection**: Enhance the automatic detection of eye blinks and muscle artifacts
 
 ## Contributing
 
@@ -425,7 +412,7 @@ This project is licensed under the **MIT License**:
 ```
 MIT License
 
-Copyright (c) [Year] [Your Name/Organization]
+Copyright (c) 2025 Vincent Gruse and Emmanuel Taylor, Towson University
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
