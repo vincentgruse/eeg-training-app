@@ -15,12 +15,12 @@
     "prettier": "prettier --write \"src/**/*.{ts,tsx}\"",
     "preview": "vite preview",
     "dist": "electron-builder --publish=never",
-    "postinstall": "electron-builder install-app-deps",
     "start": "electron ."
   },
   "dependencies": {
     "@types/recharts": "^1.8.29",
     "bootstrap": "^5.3.3",
+    "eeg-training-app": "file:",
     "prettier": "^3.5.3",
     "react": "^18.2.0",
     "react-bootstrap": "^2.10.9",

@@ -1,6 +1,6 @@
 export const DIRECTIONS = ['left', 'right', 'forward', 'backward', 'stop'];
 
-export const DIRECTION_DISPLAY_DURATION = 5000;
+export const DIRECTION_DISPLAY_DURATION = 15000;
 export const TRIGGER_DURATION = 500;
 export const EMOJI_MOVEMENT_DURATION = 2000;
 export const POST_REWARD_PAUSE = 3000;
