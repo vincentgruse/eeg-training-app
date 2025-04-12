@@ -1,0 +1,60 @@
+Participant ID: p91
+Session Start: 2025-04-12T00:41:52.765Z
+Session End: 2025-04-12T00:49:20.054Z
+Total Stimuli: 50
+Session Duration: 447.289 seconds
+
+Trigger Pattern Information:
+- Stimulus Trigger: Single flash (1000ms)
+
+Stimulus Order:
+Stimulus 1: STOP
+Stimulus 2: FORWARD
+Stimulus 3: FORWARD
+Stimulus 4: LEFT
+Stimulus 5: RIGHT
+Stimulus 6: FORWARD
+Stimulus 7: LEFT
+Stimulus 8: RIGHT
+Stimulus 9: LEFT
+Stimulus 10: BACKWARD
+Stimulus 11: BACKWARD
+Stimulus 12: LEFT
+Stimulus 13: BACKWARD
+Stimulus 14: STOP
+Stimulus 15: FORWARD
+Stimulus 16: LEFT
+Stimulus 17: RIGHT
+Stimulus 18: BACKWARD
+Stimulus 19: STOP
+Stimulus 20: STOP
+Stimulus 21: BACKWARD
+Stimulus 22: BACKWARD
+Stimulus 23: BACKWARD
+Stimulus 24: LEFT
+Stimulus 25: BACKWARD
+Stimulus 26: FORWARD
+Stimulus 27: FORWARD
+Stimulus 28: LEFT
+Stimulus 29: LEFT
+Stimulus 30: LEFT
+Stimulus 31: STOP
+Stimulus 32: FORWARD
+Stimulus 33: FORWARD
+Stimulus 34: RIGHT
+Stimulus 35: LEFT
+Stimulus 36: RIGHT
+Stimulus 37: STOP
+Stimulus 38: STOP
+Stimulus 39: FORWARD
+Stimulus 40: RIGHT
+Stimulus 41: FORWARD
+Stimulus 42: RIGHT
+Stimulus 43: STOP
+Stimulus 44: BACKWARD
+Stimulus 45: RIGHT
+Stimulus 46: RIGHT
+Stimulus 47: STOP
+Stimulus 48: STOP
+Stimulus 49: BACKWARD
+Stimulus 50: RIGHT
