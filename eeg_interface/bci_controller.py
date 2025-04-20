@@ -234,6 +234,11 @@ def main():
         # Initialize controller
         controller = BCIController()
         
+        # Start dashboard bridge
+        from dashboard_bridge import DashboardBridge
+        dashboard = DashboardBridge(controller)
+        dashboard.start_in_thread()
+        
         # Start data acquisition
         if controller.start_acquisition():
             # Keep the script running

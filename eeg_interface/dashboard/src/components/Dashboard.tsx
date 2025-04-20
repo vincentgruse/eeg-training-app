@@ -8,47 +8,20 @@ import SignalQualityIndicator from './SignalQuality';
 import { BCIData, ChannelData, ClassificationData, SystemStatus, SignalQualityType } from '../types';
 import BCIDataService from '../utils/api';
 
-// Placeholder data for initial render
-const generateInitialEEGData = (): ChannelData[] => {
-  const now = Date.now();
-  const channelNames = ['Fp1', 'Fp2', 'C3', 'C4', 'P7', 'P8', 'O1', 'O2'];
-  
-  return channelNames.map(channel => ({
-    channel,
-    values: Array(50).fill(0).map((_, i) => ({ 
-      time: now - (49-i) * 20, 
-      value: Math.sin(i/5 + channelNames.indexOf(channel)) * 20 + Math.random() * 8 - 4 
-    }))
-  }));
-};
-
-const generateInitialClassificationData = (): ClassificationData => {
-  const directions = ['FORWARD', 'BACKWARD', 'LEFT', 'RIGHT', 'STOP'];
-  const result: ClassificationData = {};
-  
-  directions.forEach(dir => {
-    result[dir] = 0.2; // Equal probability initially
-  });
-  
-  return result;
-};
-
-const generateInitialSystemStatus = (): SystemStatus => ({
-  boardConnected: false,
-  esp32Connected: false,
-  signalQuality: 'Fair',
-  batteryLevel: 100,
-  lastCommand: 'NONE',
-  obstacleDetected: false,
-  distance: 45,
-  speed: 150,
-  commandConfidence: 0.2,
-});
-
 const Dashboard: React.FC = () => {
-  const [eegData, setEEGData] = useState<ChannelData[]>(generateInitialEEGData());
-  const [classificationData, setClassificationData] = useState<ClassificationData>(generateInitialClassificationData());
-  const [systemStatus, setSystemStatus] = useState<SystemStatus>(generateInitialSystemStatus());
+  const [eegData, setEEGData] = useState<ChannelData[]>([]);
+  const [classificationData, setClassificationData] = useState<ClassificationData>({});
+  const [systemStatus, setSystemStatus] = useState<SystemStatus>({
+    boardConnected: false,
+    esp32Connected: false,
+    signalQuality: 'Fair',
+    batteryLevel: 0,
+    lastCommand: 'NONE',
+    obstacleDetected: false,
+    distance: 0,
+    speed: 0,
+    commandConfidence: 0,
+  });
   
   // WebSocket connection
   useEffect(() => {
@@ -82,12 +55,12 @@ const Dashboard: React.FC = () => {
   };
   
   return (
-    <div className="bg-gray-100 min-h-screen p-4">
-      <div className="w-full mx-auto">
-        <header className="bg-white shadow rounded-lg p-4 mb-6 flex justify-between items-center">
+    <div className="flex justify-center bg-zinc-900 min-h-screen w-screen">
+      <div className="w-full max-w-6xl px-4">
+        <header className="bg-zinc-800 shadow rounded-lg p-4 my-2 flex justify-between items-center">
           <div className="flex items-center">
-            <Brain size={28} className="text-blue-600 mr-2" />
-            <h1 className="text-2xl font-bold text-gray-800">BCI System Dashboard</h1>
+            <Brain size={28} className="text-zinc-400 mr-3" />
+            <h1 className="text-2xl font-bold text-zinc-100 me-4">BCI System Dashboard</h1>
           </div>
           <div className="flex items-center">
             <StatusIndicator 
@@ -100,7 +73,7 @@ const Dashboard: React.FC = () => {
               connected={systemStatus.esp32Connected} 
               icon={<Send size={18} />} 
             />
-            <div className="flex items-center text-gray-700">
+            <div className="flex items-center text-zinc-300 ml-4">
               <Battery size={18} className="mr-1" />
               <span>{systemStatus.batteryLevel}%</span>
             </div>
@@ -109,20 +82,20 @@ const Dashboard: React.FC = () => {
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <div className="bg-white shadow rounded-lg p-4 mb-6">
-            <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
-                <Activity size={20} className="text-blue-500 mr-2" />
+            <div className="bg-zinc-800 shadow rounded-lg p-4 mb-2">
+              <h2 className="text-lg font-semibold text-zinc-200 mb-4 flex items-center">
+                <Activity size={20} className="text-zinc-400 mr-2" />
                 EEG Signal Monitor
               </h2>
               <EEGDisplay eegData={eegData} />
             </div>
         
-            <div className="bg-white shadow rounded-lg p-4 mb-6">
-              <h2 className="text-lg font-semibold text-gray-700 mb-4">Manual Control</h2>
+            <div className="bg-zinc-800 shadow rounded-lg p-4 mb-2">
+              <h2 className="text-lg font-semibold text-zinc-200 mb-4">Manual Control</h2>
               <div className="grid grid-cols-3 gap-2">
                 <div></div>
                 <button 
-                  className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
+                  className="bg-zinc-600 hover:bg-zinc-700 text-white py-2 px-4 rounded"
                   onClick={() => sendCommand('FORWARD')}
                 >
                   Forward
@@ -130,19 +103,19 @@ const Dashboard: React.FC = () => {
                 <div></div>
                 
                 <button 
-                  className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
+                  className="bg-zinc-600 hover:bg-zinc-700 text-white py-2 px-4 rounded"
                   onClick={() => sendCommand('LEFT')}
                 >
                   Left
                 </button>
                 <button 
-                  className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded"
+                  className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded"
                   onClick={() => sendCommand('STOP')}
                 >
                   Stop
                 </button>
                 <button 
-                  className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
+                  className="bg-zinc-600 hover:bg-zinc-700 text-white py-2 px-4 rounded"
                   onClick={() => sendCommand('RIGHT')}
                 >
                   Right
@@ -150,7 +123,7 @@ const Dashboard: React.FC = () => {
                 
                 <div></div>
                 <button 
-                  className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
+                  className="bg-zinc-600 hover:bg-zinc-700 text-white py-2 px-4 rounded"
                   onClick={() => sendCommand('BACKWARD')}
                 >
                   Backward
@@ -160,7 +133,7 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           
-          <div className="space-y-6">
+          <div className="space-y-2">
             <ClassificationPanel 
               classificationData={classificationData} 
               lastCommand={systemStatus.lastCommand} 
@@ -168,44 +141,19 @@ const Dashboard: React.FC = () => {
             
             <RobotStatus status={systemStatus} />
             
-            <div className="bg-white shadow rounded-lg p-4">
-              <h2 className="text-lg font-semibold text-gray-700 mb-2 flex items-center">
-                <Activity size={20} className="text-blue-500 mr-2" />
+            <div className="bg-zinc-800 shadow rounded-lg p-4">
+              <h2 className="text-lg font-semibold text-zinc-200 mb-2 flex items-center">
+                <Activity size={20} className="text-zinc-400 mr-2" />
                 Signal Quality
               </h2>
               <div className="space-y-3">
-                <SignalQualityIndicator 
-                  label="Fp1" 
-                  quality={Math.random() > 0.3 ? 'good' : (Math.random() > 0.5 ? 'fair' : 'poor') as SignalQualityType} 
-                />
-                <SignalQualityIndicator 
-                  label="Fp2" 
-                  quality={Math.random() > 0.3 ? 'good' : (Math.random() > 0.5 ? 'fair' : 'poor') as SignalQualityType} 
-                />
-                <SignalQualityIndicator 
-                  label="C3" 
-                  quality={Math.random() > 0.2 ? 'good' : (Math.random() > 0.6 ? 'fair' : 'poor') as SignalQualityType} 
-                />
-                <SignalQualityIndicator 
-                  label="C4" 
-                  quality={Math.random() > 0.2 ? 'good' : (Math.random() > 0.6 ? 'fair' : 'poor') as SignalQualityType} 
-                />
-                <SignalQualityIndicator 
-                  label="P7" 
-                  quality={Math.random() > 0.3 ? 'good' : (Math.random() > 0.5 ? 'fair' : 'poor') as SignalQualityType} 
-                />
-                <SignalQualityIndicator 
-                  label="P8" 
-                  quality={Math.random() > 0.3 ? 'good' : (Math.random() > 0.5 ? 'fair' : 'poor') as SignalQualityType} 
-                />
-                <SignalQualityIndicator 
-                  label="O1" 
-                  quality={Math.random() > 0.3 ? 'good' : (Math.random() > 0.5 ? 'fair' : 'poor') as SignalQualityType} 
-                />
-                <SignalQualityIndicator 
-                  label="O2" 
-                  quality={Math.random() > 0.3 ? 'good' : (Math.random() > 0.5 ? 'fair' : 'poor') as SignalQualityType} 
-                />
+                {eegData.map(channel => (
+                  <SignalQualityIndicator 
+                    key={channel.channel}
+                    label={channel.channel} 
+                    quality={systemStatus.signalQuality as SignalQualityType} 
+                  />
+                ))}
               </div>
             </div>
           </div>
