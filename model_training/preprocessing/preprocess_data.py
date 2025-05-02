@@ -1,8 +1,6 @@
 """
 preprocess_data.py
 
-Author: Emmanuel Taylor
-
 This script is intended to process raw EEG data from collected CSVs located in
 `model_training/data/`. It will perform:
 1. Bandpass Filtering (8-30 Hz)
@@ -21,16 +19,18 @@ from pathlib import Path
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
-# Configuration
+# Path configurations.
 RAW_DATA_DIR = Path("model_training/data")
 OUT_DIR_5 = Path("model_training/preprocessed_data/5class")
 OUT_DIR_2 = Path("model_training/preprocessed_data/2class")
 
+# EEG configurations.
 EEG_CHANNELS = [f"EXG Channel {i}" for i in range(8)]
 WINDOW_SIZE = 250     # 1 second
 STEP_SIZE = 25         # 90% overlap (maximize data)
 SAMPLING_RATE = 250
 
+# Label encodings.
 LABEL_MAP_5 = {
     'BACKWARD': 0,
     'FORWARD': 1,
@@ -44,21 +44,41 @@ LABEL_MAP_2 = {
     'STOP': 1
 }
 
+# ==============================================================================
+# SLIDING WINDOW
+# ==============================================================================
 def sliding_window(data: np.ndarray, window_size: int, step_size: int):
-    """Generate overlapping windows from EEG data."""
+    """
+    Apply a sliding window across a continuous EEG recording.
+
+    Returns:
+        Array of shape [num_windows, window_size, num_channels]
+    """
     windows = []
     for start in range(0, data.shape[0] - window_size + 1, step_size):
         window = data[start:start + window_size]
         windows.append(window)
     return np.stack(windows)
 
+# ==============================================================================
+# NORMALIZATION
+# ==============================================================================
 def normalize_windows(windows: np.ndarray):
-    """Apply z-score normalization to each window independently."""
+    """
+    Z-score normalize each EEG window independently.
+    """
     scaler = StandardScaler()
     normed = np.array([scaler.fit_transform(win) for win in windows])
     return normed
 
+# ==============================================================================
+# PREPROCESSING BLOCK
+# ==============================================================================
 def process_all_csv_files():
+    """
+    Processes all labeled EEG files in /data, applies segmentation and normalization,
+    and outputs preprocessed numpy arrays for model training.
+    """
     X_raw_5, y_raw_5 = [], []
     X_raw_2, y_raw_2 = [], []
 
@@ -72,6 +92,7 @@ def process_all_csv_files():
                 df = pd.read_csv(csv_file)
                 eeg = df[EEG_CHANNELS].values
                 
+                # Normalize and segment EEG signal.
                 windows = sliding_window(eeg, WINDOW_SIZE, STEP_SIZE)
                 windows = normalize_windows(windows)
 

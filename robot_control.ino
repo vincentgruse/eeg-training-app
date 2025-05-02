@@ -1,6 +1,14 @@
+/*
+Brain-Controlled Robot — Arduino Command Interpreter
+
+This sketch receives EEG-based movement predictions as JSON over Serial,
+parses them using ArduinoJson, and controls motors accordingly.
+
+*/
+
 #include <ArduinoJson.h>
 
-// Motor control pins (example — customize for your setup)
+// Motor control pins.
 const int motorLeftFwd = 5;
 const int motorLeftRev = 6;
 const int motorRightFwd = 9;
@@ -15,11 +23,13 @@ void setup() {
   pinMode(motorRightRev, OUTPUT);
 
   stopMotors();
-  Serial.println("🧠 Robot ready for commands...");
+  Serial.println("[INFO] Robot ready for commands.");
 }
 
 void loop() {
   static String incoming = "";
+
+  // Read full JSON line from Serial.
   while (Serial.available()) {
     char c = Serial.read();
     if (c == '\n') {
@@ -31,11 +41,14 @@ void loop() {
   }
 }
 
+/**
+ * Message parsing and dispatching.
+ */
 void handleMessage(const String& msg) {
   StaticJsonDocument<128> doc;
   DeserializationError error = deserializeJson(doc, msg);
   if (error) {
-    Serial.print("⚠️ JSON Parse Error: ");
+    Serial.print("[ERROR] JSON Parse Error: ");
     Serial.println(error.c_str());
     return;
   }
@@ -43,14 +56,14 @@ void handleMessage(const String& msg) {
   const char* command = doc["class"];
   float confidence = doc["confidence"];
 
-  Serial.print("➡️ Command: ");
+  Serial.print("[INFO] Command: ");
   Serial.print(command);
   Serial.print(" (conf: ");
   Serial.print(confidence, 2);
   Serial.println(")");
 
   if (confidence < 0.6) {
-    Serial.println("🤔 Low confidence — ignoring.");
+    Serial.println("[INFO] Low confidence — ignoring.");
     return;
   }
 
@@ -67,13 +80,15 @@ void handleMessage(const String& msg) {
   }
 }
 
-// ---------------- Motor Actions ---------------- //
+/**
+ * Motor Control Functions.
+ */
 void moveForward() {
   digitalWrite(motorLeftFwd, HIGH);
   digitalWrite(motorLeftRev, LOW);
   digitalWrite(motorRightFwd, HIGH);
   digitalWrite(motorRightRev, LOW);
-  Serial.println("🚗 Moving FORWARD");
+  Serial.println("[INFO] Moving FORWARD");
 }
 
 void moveBackward() {
@@ -81,7 +96,7 @@ void moveBackward() {
   digitalWrite(motorLeftRev, HIGH);
   digitalWrite(motorRightFwd, LOW);
   digitalWrite(motorRightRev, HIGH);
-  Serial.println("↩️ Moving BACKWARD");
+  Serial.println("[INFO] Moving BACKWARD");
 }
 
 void turnLeft() {
@@ -89,7 +104,7 @@ void turnLeft() {
   digitalWrite(motorLeftRev, HIGH);
   digitalWrite(motorRightFwd, HIGH);
   digitalWrite(motorRightRev, LOW);
-  Serial.println("↪️ Turning LEFT");
+  Serial.println("[INFO] Turning LEFT");
 }
 
 void turnRight() {
@@ -97,7 +112,7 @@ void turnRight() {
   digitalWrite(motorLeftRev, LOW);
   digitalWrite(motorRightFwd, LOW);
   digitalWrite(motorRightRev, HIGH);
-  Serial.println("↩️ Turning RIGHT");
+  Serial.println("[INFO] Turning RIGHT");
 }
 
 void stopMotors() {
@@ -105,5 +120,5 @@ void stopMotors() {
   digitalWrite(motorLeftRev, LOW);
   digitalWrite(motorRightFwd, LOW);
   digitalWrite(motorRightRev, LOW);
-  Serial.println("⏹️ STOP");
+  Serial.println("[INFO] STOP");
 }

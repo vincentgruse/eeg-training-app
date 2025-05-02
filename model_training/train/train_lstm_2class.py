@@ -1,3 +1,12 @@
+"""
+train_lstm_2class.py
+
+This script trains an LSTM model for binary EEG classification: FORWARD vs STOP.
+
+Dependencies:
+    json, torch, matplotlib, numpy, os, EEGLSTM, EEGDataset, sklearn
+"""
+
 import json
 import torch
 import torch.nn as nn
@@ -10,13 +19,14 @@ from model_training.models.lstm import EEGLSTM
 from model_training.utils.dataset_loader import EEGDataset
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score
 
-# ------------------ CONFIG ------------------ #
+# Training configuration.
 BATCH_SIZE = 64
 EPOCHS = 30
 PATIENCE = 5
 LR = 1e-3
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# Path configuration.
 X_PATH = "model_training/preprocessed_data/2class/X_raw.npy"
 Y_PATH = "model_training/preprocessed_data/2class/y_raw.npy"
 MODEL_PATH = "model_training/outputs/models/lstm_2class.pt"
@@ -27,10 +37,11 @@ os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
 os.makedirs(PLOT_DIR, exist_ok=True)
 os.makedirs(METRICS_DIR, exist_ok=True)
 
-# ------------------ DATA ------------------ #
+# ==============================================================================
+# DATA
+# ==============================================================================
 dataset = EEGDataset(X_PATH, Y_PATH)
 
-# LSTM expects [N, 250, 8] → no transpose needed if already correct
 if dataset.X.shape[1] == 8:
     dataset.X = dataset.X.transpose(0, 2, 1)
 
@@ -40,12 +51,16 @@ train_ds, val_ds = torch.utils.data.random_split(dataset, [train_size, val_size]
 train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
 val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE)
 
-# ------------------ MODEL ------------------ #
+# ==============================================================================
+# MODEL
+# ==============================================================================
 model = EEGLSTM(num_classes=2).to(DEVICE)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=LR)
 
-# ------------------ TRAIN LOOP ------------------ #
+# ==============================================================================
+# TRAINING LOOP
+# ==============================================================================
 train_losses, val_losses, val_accuracies = [], [], []
 best_acc = 0
 epochs_no_improve = 0
@@ -66,7 +81,7 @@ for epoch in range(EPOCHS):
 
     train_losses.append(running_loss / len(train_loader))
 
-    # Validation
+    # Model validation.
     model.eval()
     correct = 0
     val_loss = 0
@@ -88,20 +103,22 @@ for epoch in range(EPOCHS):
     val_acc = correct / len(val_ds)
     val_losses.append(val_loss / len(val_loader))
     val_accuracies.append(val_acc)
-    print(f"Epoch {epoch+1}: Train Loss={train_losses[-1]:.4f}, Val Acc={val_acc:.4f}")
+    print(f"[INFO] Epoch {epoch+1}: Train Loss={train_losses[-1]:.4f}, Val Acc={val_acc:.4f}")
 
     if val_acc > best_acc:
         best_acc = val_acc
         torch.save(model.state_dict(), MODEL_PATH)
-        print(f"✅ New best model saved (val acc = {val_acc:.4f})")
+        print(f"[INFO] New best model saved (val acc = {val_acc:.4f})")
         epochs_no_improve = 0
     else:
         epochs_no_improve += 1
         if epochs_no_improve >= PATIENCE:
-            print("⏹️ Early stopping triggered.")
+            print("[INFO] Early stopping triggered.")
             break
 
-# ------------------ EVALUATION ------------------ #
+# ==============================================================================
+# EVALUATION
+# ==============================================================================
 cm = confusion_matrix(all_labels, all_preds)
 disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["FORWARD", "STOP"])
 disp.plot(cmap="Blues")
@@ -109,7 +126,7 @@ plt.title("Confusion Matrix - LSTM 2-Class")
 plt.savefig(f"{PLOT_DIR}/lstm_2class_confusion.png")
 plt.close()
 
-# Accuracy Plot
+# Accuracy Plot.
 plt.plot(val_accuracies, label="Val Acc")
 plt.title("Validation Accuracy - LSTM 2-Class")
 plt.xlabel("Epoch")
@@ -119,7 +136,7 @@ plt.legend()
 plt.savefig(f"{PLOT_DIR}/lstm_2class_accuracy.png")
 plt.close()
 
-# Loss Plot
+# Loss Plot.
 plt.plot(train_losses, label="Train Loss")
 plt.plot(val_losses, label="Val Loss")
 plt.title("Loss Curve - LSTM 2-Class")
@@ -130,6 +147,7 @@ plt.legend()
 plt.savefig(f"{PLOT_DIR}/lstm_2class_loss.png")
 plt.close()
 
+# Save metrics as JSON.
 metrics = {
     "val_accuracy": best_acc,
     "train_losses": train_losses,
@@ -140,4 +158,4 @@ metrics = {
 json_path = os.path.join(METRICS_DIR, f"{MODEL_PATH.split('/')[-1].replace('.pt', '')}_metrics.json")
 with open(json_path, "w") as f:
     json.dump(metrics, f)
-print(f"📊 Metrics saved to {json_path}")
+print(f"[INFO] Metrics saved to {json_path}")
